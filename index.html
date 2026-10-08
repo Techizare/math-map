@@ -116,6 +116,14 @@ canvas:active { cursor: grabbing; }
 .muted { color: var(--muted); }
 .panel .note { font-size: 12px; color: var(--muted); }
 .toggle-sheet { display: none; }
+.btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface-2); border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px; font-weight: 500; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.picking { margin: 14px 0 0; padding: 10px 12px; border-radius: 6px; background: var(--surface-2); border: 1px dashed var(--accent); font-size: 13px; }
+.chain { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 4px; margin: 0 0 6px; padding: 0; list-style: none; }
+.chain li { display: contents; }
+.chain .arrow { color: var(--muted); font-size: 12px; }
+.chain-label { font-size: 12px; color: var(--muted); margin: 10px 0 6px; }
 .err { padding: 24px; max-width: 60ch; }
 
 @media (max-width: 760px) {
@@ -309,11 +317,16 @@ canvas:active { cursor: grabbing; }
 
   // ---------- Focus state ----------
   let selected = null, hovered = null, spotlight = null;
+  let pair = null, picking = false;   // comparing two concepts
   let emph = new Map();              // node -> 0 dim, 1 normal, 2 medium, 3 strong
   function computeFocus() {
     emph = new Map();
     const set = (n, v) => emph.set(n, Math.max(emph.get(n) ?? 0, v));
-    if (selected) {
+    if (pair) {
+      if (pair.routeSet) for (const m of pair.routeSet) set(m, 2);
+      for (const path of pair.paths) for (const m of path.nodes) set(m, path.tone);
+      set(pair.a, 3); set(pair.b, 3);
+    } else if (selected) {
       set(selected, 3); for (const a of selected.anc) set(a, 3); for (const c of selected.children) set(c, 2);
     } else if (hovered) {
       set(hovered, 3); for (const m of hovered.parents) set(m, 2); for (const m of hovered.children) set(m, 2);
@@ -327,6 +340,10 @@ canvas:active { cursor: grabbing; }
   const em = (n) => emph.get(n) ?? 0;
   function edgeEmph(l) {
     const s = l.source, t = l.target;
+    if (pair) {
+      const tone = pair.edgeTone.get(s.id + "|" + t.id) ?? 0;
+      return pair.routeSet && pair.routeSet.has(s) && pair.routeSet.has(t) ? Math.max(tone, 2) : tone;
+    }
     if (selected) {
       if (t === selected || (selected.anc.has(t) && selected.anc.has(s))) return 3;
       if (s === selected) return 2;
@@ -410,7 +427,7 @@ canvas:active { cursor: grabbing; }
         shapePath(n, n.r); ctx.fillStyle = T.bg; ctx.fill();
         ctx.lineWidth = Math.max(1.6 / k, n.r * 0.42); ctx.strokeStyle = n.color; shapePath(n, n.r * 0.8); ctx.stroke();
       } else { shapePath(n, n.r); ctx.fillStyle = n.color; ctx.fill(); }
-      if (n === selected || n === hovered) {
+      if (n === selected || n === hovered || (pair && (n === pair.a || n === pair.b))) {
         ctx.globalAlpha = 1; ctx.lineWidth = 2 / k; ctx.strokeStyle = T.ink;
         shapePath(n, n.r + 4 / k + 2); ctx.stroke();
       }
@@ -428,7 +445,7 @@ canvas:active { cursor: grabbing; }
 
     // Domain names over their clusters when zoomed out.
     const dAlpha = Math.max(0, Math.min(1, (0.6 - k) / 0.15));
-    if (dAlpha > 0 && mode === "free" && ringAlpha < 0.05 && !selected && !hovered) {
+    if (dAlpha > 0 && mode === "free" && ringAlpha < 0.05 && !selected && !hovered && !pair) {
       ctx.font = `600 italic ${W < 600 ? 14 : 17}px ${getFont("--font-display")}`;
       for (const [id, d] of domains) {
         const ms = nodes.filter((n) => n.domain === id);
@@ -443,7 +460,7 @@ canvas:active { cursor: grabbing; }
       ctx.globalAlpha = 1;
     }
 
-    const forced = new Set([selected, hovered].filter(Boolean));
+    const forced = new Set([selected, hovered, pair?.a, pair?.b].filter(Boolean));
     const cand = nodes.filter((n) => {
       const sx = n.x * k + tx, sy = n.y * k + ty;
       if (sx < -100 || sx > W + 100 || sy < -40 || sy > H + 40) return false;
@@ -490,7 +507,7 @@ canvas:active { cursor: grabbing; }
     const target = layouts[mode] ??= simulate(mode);
     const from = new Map(nodes.map((n) => [n, { x: n.x, y: n.y }]));
     const ring0 = ringAlpha, ring1 = mode === "radial" ? 1 : 0;
-    const finish = () => { for (const n of nodes) Object.assign(n, target.get(n.id)); ringAlpha = ring1; selected ? flyTo(selected) : fit(); requestDraw(); };
+    const finish = () => { for (const n of nodes) Object.assign(n, target.get(n.id)); ringAlpha = ring1; pair ? fitNodes(pairNodes()) : selected ? flyTo(selected) : fit(); requestDraw(); };
     if (reduceMotion) return finish();
     const t0 = performance.now(), dur = 900;
     (function step(now) {
@@ -517,16 +534,21 @@ canvas:active { cursor: grabbing; }
   canvas.addEventListener("pointermove", (e) => {
     if (e.pointerType === "touch") return;
     const r = canvas.getBoundingClientRect(), n = nodeAt(e.clientX - r.left, e.clientY - r.top);
-    if (n !== hovered) { hovered = n; canvas.classList.toggle("pointer", !!n); if (!selected) computeFocus(); else requestDraw(); }
+    if (n !== hovered) { hovered = n; canvas.classList.toggle("pointer", !!n); if (!selected && !pair) computeFocus(); else requestDraw(); }
   });
-  canvas.addEventListener("pointerleave", () => { if (hovered) { hovered = null; canvas.classList.remove("pointer"); if (!selected) computeFocus(); else requestDraw(); } });
+  canvas.addEventListener("pointerleave", () => { if (hovered) { hovered = null; canvas.classList.remove("pointer"); if (!selected && !pair) computeFocus(); else requestDraw(); } });
   canvas.addEventListener("click", (e) => {
     const r = canvas.getBoundingClientRect(), n = nodeAt(e.clientX - r.left, e.clientY - r.top);
-    if (n) select(n, { fly: false }); else if (selected) select(null);
+    if (n && e.shiftKey && selected && n !== selected) compare(selected, n);
+    else if (n) select(n, { fly: false });
+    else if (selected || pair) select(null);
   });
 
   // ---------- Selection & panel ----------
   function select(n, { fly = true } = {}) {
+    if (picking && selected && n && n !== selected) return compare(selected, n);
+    picking = false;
+    pair = null;
     selected = n;
     hovered = null;
     try { history.replaceState(null, "", n ? "#" + n.id : location.pathname + location.search); } catch (_) {}
@@ -535,10 +557,90 @@ canvas:active { cursor: grabbing; }
     if (n && fly) flyTo(n);
   }
 
+  // ---------- Comparing two concepts ----------
+  // The ideas on some route x → … → y: everything built on x that y rests on.
+  const route = (x, y) => { const r = new Set([x, y]); for (const m of x.desc) if (y.anc.has(m)) r.add(m); return r; };
+  function shortestPath(x, y) {
+    const within = route(x, y), prev = new Map([[x, null]]), queue = [x];
+    while (queue.length) {
+      const m = queue.shift();
+      if (m === y) break;
+      for (const c of m.children) if (within.has(c) && !prev.has(c)) { prev.set(c, m); queue.push(c); }
+    }
+    const path = []; for (let m = y; m; m = prev.get(m)) path.unshift(m);
+    return path;
+  }
+  // Keep only the members of a set that no other member sits beyond in the given direction.
+  const frontier = (set, beyond) => set.filter((m) => !set.some((o) => o !== m && beyond(m).has(o)));
+  function relate(a, b) {
+    if (b.anc.has(a) || a.anc.has(b)) {
+      const [lo, hi] = b.anc.has(a) ? [a, b] : [b, a];
+      const path = shortestPath(lo, hi);
+      return { kind: "chain", lo, hi, routeSet: route(lo, hi), paths: [{ nodes: path, tone: 3 }] };
+    }
+    const roots = frontier([...a.anc].filter((m) => b.anc.has(m)), (m) => m.desc).sort((x, y) => y.depth - x.depth).slice(0, 2);
+    const meets = frontier([...a.desc].filter((m) => b.desc.has(m)), (m) => m.anc).sort((x, y) => x.depth - y.depth).slice(0, 2);
+    const paths = [];
+    for (const r of roots) paths.push({ nodes: shortestPath(r, a), tone: 3, root: r }, { nodes: shortestPath(r, b), tone: 3, root: r });
+    for (const m of meets) paths.push({ nodes: shortestPath(a, m), tone: 2, meet: m }, { nodes: shortestPath(b, m), tone: 2, meet: m });
+    return { kind: "apart", roots, meets, paths };
+  }
+  function compare(a, b) {
+    picking = false; selected = null; hovered = null;
+    pair = { a, b, ...relate(a, b) };
+    pair.edgeTone = new Map();
+    for (const path of pair.paths) for (let i = 1; i < path.nodes.length; i++) {
+      const k = path.nodes[i - 1].id + "|" + path.nodes[i].id;
+      pair.edgeTone.set(k, Math.max(pair.edgeTone.get(k) ?? 0, path.tone));
+    }
+    try { history.replaceState(null, "", "#" + a.id + "~" + b.id); } catch (_) {}
+    renderPanel();
+    computeFocus();
+    fitNodes(pairNodes());
+  }
+  const pairNodes = () => [pair.a, pair.b, ...pair.paths.flatMap((p) => p.nodes)];
+  function fitNodes(list) {
+    const [x0, x1] = d3.extent(list, (n) => n.x), [y0, y1] = d3.extent(list, (n) => n.y);
+    const v = viewport(), pad = 70;
+    const k = Math.max(0.15, Math.min((v.w - pad * 2) / (x1 - x0 + 1), (v.h - pad * 2) / (y1 - y0 + 1), 2.2));
+    const t = d3.zoomIdentity.translate(v.x + v.w / 2 - k * (x0 + x1) / 2, v.y + v.h / 2 - k * (y0 + y1) / 2).scale(k);
+    (reduceMotion ? sel : sel.transition().duration(750)).call(zoom.transform, t);
+  }
+  const steps = (k) => `${k} step${k === 1 ? "" : "s"}`;
+  const chainHtml = (path) => `<ol class="chain">${path.map((m, i) => `<li>${i ? `<span class="arrow" aria-hidden="true">→</span>` : ""}${chip(m)}</li>`).join("")}</ol>`;
+  function pairPanel() {
+    const { a, b } = pair;
+    let body;
+    if (pair.kind === "chain") {
+      const { lo, hi, paths, routeSet } = pair, path = paths[0].nodes;
+      body = `<p class="lede"><b>${esc(hi.name)}</b> builds on <b>${esc(lo.name)}</b>. The shortest route takes ${steps(path.length - 1)}, and ${routeSet.size - 2 === 0 ? "it is a direct dependency" : `${routeSet.size - 2} ideas lie on routes between them`}.</p>
+        <h3>Shortest route</h3>${chainHtml(path)}
+        <p class="note" style="margin-top:14px">On the map, the shortest route is drawn in dark arrows and every other route between them in colour.</p>`;
+    } else {
+      const rootLine = pair.roots.length ? `Both rest on ${pair.roots.map((r) => `<b>${esc(r.name)}</b>`).join(" and ")}` : "";
+      const meetLine = pair.meets.length ? `both feed into ${pair.meets.map((m) => `<b>${esc(m.name)}</b>`).join(" and ")}` : "no idea on the map builds on both yet";
+      body = `<p class="lede">Neither builds on the other. ${rootLine}, and ${meetLine}.</p>
+        ${pair.roots.map((r) => `<h3>Common ground: ${esc(r.name)}</h3>
+          <div class="chain-label">To ${esc(a.name)}, ${steps(shortestPath(r, a).length - 1)}</div>${chainHtml(shortestPath(r, a))}
+          <div class="chain-label">To ${esc(b.name)}, ${steps(shortestPath(r, b).length - 1)}</div>${chainHtml(shortestPath(r, b))}`).join("")}
+        ${pair.meets.map((m) => `<h3>Where they meet: ${esc(m.name)}</h3>
+          ${chainHtml(shortestPath(a, m))}${chainHtml(shortestPath(b, m))}`).join("")}
+        <p class="note" style="margin-top:14px">On the map, routes from their common ground are drawn in dark arrows${pair.meets.length ? " and routes to where they meet in colour" : ""}.</p>`;
+    }
+    return `
+      <div class="head"><div class="eyebrow"><span class="kind">Comparing two ideas</span></div>
+        <button class="close" id="close" aria-label="Stop comparing and return to the overview">×</button></div>
+      <h2>${esc(a.name)} <span class="muted">and</span> ${esc(b.name)}</h2>
+      ${body}`;
+  }
+
   const chip = (n) => `<button class="chip" data-id="${esc(n.id)}"><span class="swatch" style="background:${n.color}"></span>${esc(n.name)}</button>`;
   function renderPanel() {
     const n = selected;
-    if (!n) {
+    if (pair) {
+      panelBody.innerHTML = pairPanel();
+      panel.classList.remove("collapsed");
+    } else if (!n) {
       const starters = STARTERS.map((id) => byId.get(id)).filter(Boolean);
       const axioms = nodes.filter((m) => m.kind === "axiom");
       panelBody.innerHTML = `
@@ -547,7 +649,7 @@ canvas:active { cursor: grabbing; }
           <button class="close toggle-sheet" id="sheet-toggle" aria-label="Show or hide the introduction">${panel.classList.contains("collapsed") ? "▴" : "▾"}</button></div>
         <p class="lede">Each dot is a concept or theorem. An arrow runs from an idea to the ideas built on top of it, the way the <i>Principia Mathematica</i> builds arithmetic out of logic.</p>
         <p>In the <b>Foundations</b> view, propositional logic sits at the centre and each ring is one more step of dependency away from it. Switch to <b>Clusters</b> to let the concepts settle by their connections alone. The colours mark traditional domains, but the layout never uses them: the clusters you see come only from what depends on what.</p>
-        <p>Bigger dots support more of the map. Select any dot to trace everything it rests on, all the way down to the axioms.</p>
+        <p>Bigger dots support more of the map. Select any dot to trace everything it rests on, all the way down to the axioms. To see how two ideas are related, select one and press <b>Compare</b>, or shift-click a second dot.</p>
         <div class="stats">
           <div class="stat"><b>${nodes.length}</b><span>concepts and theorems</span></div>
           <div class="stat"><b>${links.length}</b><span>dependencies</span></div>
@@ -574,6 +676,8 @@ canvas:active { cursor: grabbing; }
           <div class="stat"><b>${n.anc.size}</b><span>ideas it rests on</span></div>
           <div class="stat"><b>${n.desc.size}</b><span>ideas built on it</span></div>
         </div>
+        <div style="margin-top:14px"><button class="btn ${picking ? "" : "primary"}" id="compare">${picking ? "Cancel comparing" : "Compare with another idea"}</button></div>
+        ${picking ? `<p class="picking">Now pick a second idea on the map or with search, and the map will show how the two are related.</p>` : ""}
         <h3>Builds directly on</h3>
         ${parents.length ? `<div class="chips">${parents.map(chip).join("")}</div>` : `<p class="muted">Nothing. This is where the map begins.</p>`}
         <h3>Leads directly to</h3>
@@ -587,6 +691,7 @@ canvas:active { cursor: grabbing; }
   panelBody.addEventListener("click", (e) => {
     const c = e.target.closest(".chip"); if (c) return select(byId.get(c.dataset.id));
     if (e.target.closest("#close")) return select(null);
+    if (e.target.closest("#compare")) { picking = !picking; renderPanel(); if (picking && !isNarrow()) q.focus(); return; }
     if (e.target.closest("#sheet-toggle")) { panel.classList.toggle("collapsed"); renderPanel(); }
   });
 
@@ -606,7 +711,7 @@ canvas:active { cursor: grabbing; }
   $("#legend-body").addEventListener("click", (e) => {
     const b = e.target.closest(".dom-btn"); if (!b) return;
     spotlight = spotlight === b.dataset.domain ? null : b.dataset.domain;
-    if (selected) select(null);
+    if (selected || pair) select(null);
     renderLegend(); computeFocus();
   });
 
@@ -639,7 +744,8 @@ canvas:active { cursor: grabbing; }
   document.addEventListener("click", (e) => { if (!e.target.closest(".search")) results.hidden = true; });
   document.addEventListener("keydown", (e) => {
     if (e.key === "/" && document.activeElement !== q) { e.preventDefault(); q.focus(); }
-    else if (e.key === "Escape" && document.activeElement !== q && selected) select(null);
+    else if (e.key === "Escape" && document.activeElement !== q && picking) { picking = false; renderPanel(); }
+    else if (e.key === "Escape" && document.activeElement !== q && (selected || pair)) select(null);
   });
 
   // ---------- Start ----------
@@ -648,9 +754,9 @@ canvas:active { cursor: grabbing; }
   resize();
   renderPanel();
   computeFocus();
-  const fromHash = byId.get(decodeURIComponent(location.hash.slice(1)));
+  const [h1, h2] = decodeURIComponent(location.hash.slice(1)).split("~").map((id) => byId.get(id));
   fit(false);
-  if (fromHash) select(fromHash);
+  if (h1 && h2 && h1 !== h2) compare(h1, h2); else if (h1) select(h1);
   document.fonts?.ready.then(requestDraw);
 })();
 </script>

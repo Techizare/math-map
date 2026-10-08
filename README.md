@@ -19,7 +19,8 @@ An interactive, zoomable map of mathematical ideas. Each concept is a node; an a
   - *Clusters*: links and repulsion only, no rings.
   In both, the `domain` field is used only for colour. Clusters come purely from the dependency structure.
 - **Rendering.** Canvas, not SVG, so it stays fast as the dataset grows into the thousands. Labels appear by importance as you zoom in, with simple collision avoidance.
-- **Deep links.** `#concept-id` in the URL opens that concept.
+- **Compare.** Select a concept, press *Compare with another idea* (or shift-click a second dot), and the map shows how the two are related: the routes from one to the other, or their nearest shared prerequisites and the first ideas that build on both.
+- **Deep links.** `#concept-id` opens a concept; `#first-id~second-id` opens a comparison.
 
 ## Data format
 
