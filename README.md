@@ -44,3 +44,7 @@ python3 -m http.server 8000      # then open http://localhost:8000
 Opening `index.html` straight from disk won't work, because browsers block `fetch` from `file://` pages.
 
 `index.html` is a complete page and works on any static host, including GitHub Pages.
+
+## Licence
+
+MIT. See `LICENSE`.
