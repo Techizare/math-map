@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Map of Mathematics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Spectral:ital,wght@0,500;0,600;1,500&display=swap">
+<style>
+/* Layout: a full-bleed chart of ideas; header bar on top, the map fills the rest, a reading panel floats at the right (bottom sheet on phones). */
+:root {
+  --bg: #e8ecf0;
+  --surface: #f7f9fb;
+  --surface-2: #eef2f6;
+  --ink: #16202b;
+  --muted: #566272;
+  --line: #c7d0da;
+  --edge: #4d5b6c;
+  --ring: #b9c4d0;
+  --accent: #1f4e79;
+  --accent-ink: #ffffff;
+  --shadow: 0 1px 2px rgba(22, 32, 43, .06), 0 8px 24px rgba(22, 32, 43, .08);
+  --dark: 0;
+  --font-display: "Spectral", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c131b; --surface: #141d28; --surface-2: #1a2532; --ink: #e2e8ee; --muted: #93a0b0;
+    --line: #283444; --edge: #8b9aac; --ring: #233040; --accent: #8db6e4; --accent-ink: #0c131b;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35); --dark: 1; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0c131b; --surface: #141d28; --surface-2: #1a2532; --ink: #e2e8ee; --muted: #93a0b0;
+  --line: #283444; --edge: #8b9aac; --ring: #233040; --accent: #8db6e4; --accent-ink: #0c131b;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35); --dark: 1; color-scheme: dark;
+}
+
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 14px; line-height: 1.5; overflow: hidden; }
+#app { height: 100%; display: grid; grid-template-rows: auto 1fr; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap;
+  padding-block: 10px; padding-inline: 16px; border-bottom: 1px solid var(--line); background: var(--surface); position: relative; z-index: 5; }
+.brand { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.brand h1 { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 22px; letter-spacing: .01em; line-height: 1.1; }
+.brand p { margin: 0; color: var(--muted); font-size: 13px; }
+.brand .mark { font-family: var(--font-display); font-size: 22px; color: var(--accent); }
+
+.search { position: relative; width: min(360px, 100%); }
+.search input { width: 100%; box-sizing: border-box; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 6px; padding: 7px 10px 7px 32px; }
+.search svg { position: absolute; left: 10px; top: 50%; translate: 0 -50%; color: var(--muted); pointer-events: none; }
+.results { position: absolute; top: calc(100% + 4px); left: 0; right: 0; margin: 0; padding: 4px; list-style: none; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); max-height: 320px; overflow: auto; }
+.results button { display: flex; width: 100%; align-items: center; gap: 8px; text-align: left; background: none; border: 0; border-radius: 5px; padding: 6px 8px; cursor: pointer; }
+.results button[aria-selected="true"], .results button:hover { background: var(--surface-2); }
+.results .dom { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.results .empty { padding: 6px 8px; color: var(--muted); }
+
+.stage { position: relative; min-height: 0; overflow: hidden; }
+canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+canvas.pointer { cursor: pointer; }
+canvas:active { cursor: grabbing; }
+
+.float { position: absolute; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); }
+.controls { top: 16px; left: 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; background: none; border: 0; box-shadow: none; }
+.seg, .zooms { display: flex; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); padding: 3px; gap: 2px; }
+.seg button, .zooms button { background: none; border: 0; border-radius: 5px; padding: 5px 10px; cursor: pointer; font-size: 13px; color: var(--muted); }
+.zooms button { width: 30px; padding: 5px 0; font-family: var(--font-mono); font-size: 15px; line-height: 1; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.seg button:hover:not([aria-pressed="true"]), .zooms button:hover { background: var(--surface-2); color: var(--ink); }
+
+.legend { left: 16px; bottom: 16px; max-width: 260px; font-size: 13px; }
+.legend summary { cursor: pointer; padding: 8px 12px; font-weight: 500; list-style: none; display: flex; align-items: center; gap: 8px; }
+.legend summary::-webkit-details-marker { display: none; }
+.legend summary::after { content: "▾"; margin-left: auto; color: var(--muted); font-size: 11px; }
+.legend[open] summary::after { content: "▴"; }
+.legend .body { padding: 0 8px 10px; display: grid; gap: 1px; }
+.legend .dom-btn { display: flex; align-items: center; gap: 8px; background: none; border: 0; border-radius: 5px; padding: 3px 6px; cursor: pointer; text-align: left; }
+.legend .dom-btn:hover { background: var(--surface-2); }
+.legend .dom-btn[aria-pressed="true"] { background: var(--surface-2); font-weight: 600; }
+.legend .dom-btn .n { margin-left: auto; color: var(--muted); font-family: var(--font-mono); font-size: 11px; font-variant-numeric: tabular-nums; }
+.legend .shapes { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 8px 6px 0; margin-top: 6px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+.swatch { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.shape { display: inline-flex; align-items: center; gap: 5px; }
+
+.panel { top: 16px; right: 16px; bottom: 16px; width: 340px; display: flex; flex-direction: column; overflow: hidden; }
+.panel .scroll { overflow: auto; padding: 18px 20px 20px; min-height: 0; }
+.panel .head { display: flex; align-items: flex-start; gap: 8px; }
+.panel .eyebrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.panel .eyebrow .kind { font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .08em; font-size: 11px; }
+.panel h2 { font-family: var(--font-display); font-weight: 600; font-size: 26px; line-height: 1.15; margin: 6px 0 10px; text-wrap: balance; }
+.panel p { margin: 0 0 12px; max-width: 62ch; }
+.panel .lede { font-size: 15px; }
+.panel h3 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 18px 0 6px; }
+.panel .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 3px 10px 3px 8px; cursor: pointer; font-size: 13px; text-align: left; }
+.chip:hover { border-color: var(--muted); }
+.chip .swatch { width: 8px; height: 8px; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0 4px; }
+.stat { background: var(--surface-2); border-radius: 6px; padding: 8px 10px; }
+.stat b { display: block; font-family: var(--font-mono); font-weight: 500; font-size: 18px; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 11px; color: var(--muted); line-height: 1.3; display: block; }
+.close { margin-left: auto; flex: none; background: none; border: 1px solid transparent; border-radius: 6px; width: 30px; height: 30px; cursor: pointer; color: var(--muted); font-size: 18px; line-height: 1; }
+.close:hover { border-color: var(--line); color: var(--ink); }
+.panel a { color: var(--accent); }
+.muted { color: var(--muted); }
+.panel .note { font-size: 12px; color: var(--muted); }
+.toggle-sheet { display: none; }
+.err { padding: 24px; max-width: 60ch; }
+
+@media (max-width: 760px) {
+  .brand p { display: none; }
+  .search { width: 100%; }
+  .panel { top: auto; left: 0; right: 0; bottom: 0; width: auto; max-height: 52%; border-radius: 12px 12px 0 0; border-bottom: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .panel .scroll { padding: 12px 16px 16px; }
+  .panel.collapsed .scroll > :not(.head) { display: none; }
+  .panel.collapsed h2 { font-size: 18px; margin: 2px 0 0; }
+  .toggle-sheet { display: inline-block; }
+  .legend { bottom: auto; top: 60px; max-width: 220px; }
+  .panel h2 { font-size: 22px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div id="app">
+  <header class="bar">
+    <div class="brand">
+      <span class="mark" aria-hidden="true">∴</span>
+      <h1>Map of Mathematics</h1>
+      <p id="tagline">Ideas, and the ideas they rest on</p>
+    </div>
+    <div class="search">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <input id="q" type="search" placeholder="Find a concept, e.g. Galois theory" autocomplete="off" aria-label="Find a concept" aria-controls="results">
+      <ul class="results" id="results" role="listbox" hidden></ul>
+    </div>
+  </header>
+  <main class="stage" id="stage">
+    <canvas id="map" aria-label="Map of mathematical concepts. Use the search box to select a concept."></canvas>
+    <div class="float controls">
+      <div class="seg" role="group" aria-label="Layout">
+        <button id="mode-radial" aria-pressed="true" title="Axioms at the centre, each ring one step further from them">Foundations</button>
+        <button id="mode-free" aria-pressed="false" title="Let concepts settle into clusters by their connections alone">Clusters</button>
+      </div>
+      <div class="zooms" role="group" aria-label="Zoom">
+        <button id="zoom-in" aria-label="Zoom in">+</button>
+        <button id="zoom-out" aria-label="Zoom out">−</button>
+        <button id="zoom-fit" aria-label="Fit the whole map" title="Fit the whole map">⤢</button>
+      </div>
+    </div>
+    <details class="float legend" id="legend" open>
+      <summary>Domains</summary>
+      <div class="body" id="legend-body"></div>
+    </details>
+    <aside class="float panel" id="panel" aria-live="polite"><div class="scroll" id="panel-body"></div></aside>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+(async function () {
+  "use strict";
+
+  // Domain colours: [light theme, dark theme]. Domains are only colour; the layout never sees them.
+  const DOMAIN_COLORS = {
+    "foundations":            ["#4b5566", "#b7c1cf"],
+    "numbers":                ["#a8651c", "#e6a95e"],
+    "number-theory":          ["#c03f1b", "#f28a62"],
+    "algebra":                ["#a3286a", "#ee80b6"],
+    "linear-algebra":         ["#2a66ad", "#76abef"],
+    "analysis":               ["#127a6c", "#4fd1bd"],
+    "differential-equations": ["#2f8a3e", "#82d58f"],
+    "geometry":               ["#7c7a12", "#d2cf5c"],
+    "topology":               ["#7a4f2b", "#cf9f72"],
+    "combinatorics":          ["#b52a3a", "#f27484"],
+    "probability":            ["#6340b8", "#b39cff"]
+  };
+  const KIND_LABEL = { axiom: "Axiom", concept: "Concept", theorem: "Theorem" };
+  const RING = 58;
+  const STARTERS = ["pythagorean-theorem", "eulers-formula", "central-limit-theorem", "fermats-last-theorem", "godel-incompleteness", "poincare-conjecture"];
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const panel = $("#panel"), panelBody = $("#panel-body"), canvas = $("#map"), stage = $("#stage");
+  const isNarrow = () => matchMedia("(max-width: 760px)").matches;
+
+  // ---------- Data ----------
+  let data;
+  try {
+    const res = await fetch("data/concepts.json");
+    if (!res.ok) throw new Error(res.status + " " + res.statusText);
+    data = await res.json();
+  } catch (e) {
+    panelBody.innerHTML = `<div class="err"><h2>Couldn't load the concept data</h2><p>The map reads <code>data/concepts.json</code> next to this page. If you opened the file directly, serve the folder instead, for example with <code>python3 -m http.server</code>, then open <code>http://localhost:8000</code>.</p><p class="muted">${esc(e.message)}</p></div>`;
+    return;
+  }
+
+  const domains = new Map(data.domains.map((d) => [d.id, d]));
+  const nodes = data.concepts.map((c) => ({ ...c, parents: [], children: [] }));
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const links = [];
+  for (const n of nodes) for (const r of n.requires) {
+    const p = byId.get(r);
+    if (!p) { console.warn(`${n.id} requires unknown ${r}`); continue; }
+    links.push({ source: p, target: n });
+    n.parents.push(p); p.children.push(n);
+  }
+  const depthOf = (n) => n.depth ??= n.parents.length ? 1 + Math.max(...n.parents.map(depthOf)) : 0;
+  const closure = (n, key) => {
+    const seen = new Set(), stack = [...n[key]];
+    while (stack.length) { const m = stack.pop(); if (!seen.has(m)) { seen.add(m); stack.push(...m[key]); } }
+    return seen;
+  };
+  for (const n of nodes) { depthOf(n); n.anc = closure(n, "parents"); n.desc = closure(n, "children"); n.r = 3 + 1.5 * Math.sqrt(n.desc.size); }
+  const maxDepth = Math.max(...nodes.map((n) => n.depth));
+  // Ring radii grow with the square root of how many ideas sit at or inside that step, so the disc fills evenly.
+  const ringR = [];
+  { let before = 0; for (let d = 0; d <= maxDepth; d++) { const c = nodes.filter((n) => n.depth === d).length; ringR[d] = d === 0 ? 0 : RING * Math.sqrt(before + c / 2); before += c; } }
+  const byName = (a, b) => a.name.localeCompare(b.name);
+  $("#tagline").textContent = `${nodes.length} ideas, and the ideas they rest on`;
+
+  // ---------- Layout ----------
+  // Domains are never passed to the simulation: clusters come only from who depends on whom.
+  function simulate(mode) {
+    // Seed angles by a depth-first walk down the dependency tree, so ideas that share ancestry start side by side.
+    const sn = nodes.map((n) => {
+      const a = (seedOrder.get(n.id) / nodes.length) * Math.PI * 2, rad = mode === "radial" ? ringR[n.depth] : 40 + n.depth * 30;
+      return { id: n.id, r: n.r, depth: n.depth, x: Math.cos(a) * rad, y: Math.sin(a) * rad };
+    });
+    const sl = links.map((l) => ({ source: l.source.id, target: l.target.id }));
+    const sim = d3.forceSimulation(sn)
+      .force("link", d3.forceLink(sl).id((d) => d.id).distance(mode === "radial" ? 46 : 40))
+      .force("charge", d3.forceManyBody().strength((d) => (mode === "radial" ? -110 : -70) - d.r * 6).distanceMax(800))
+      .force("collide", d3.forceCollide((d) => d.r + 6).iterations(2))
+      .stop();
+    if (mode === "radial") sim.force("radial", d3.forceRadial((d) => ringR[d.depth], 0, 0).strength(0.9));
+    else sim.force("x", d3.forceX(0).strength(0.04)).force("y", d3.forceY(0).strength(0.04));
+    for (let i = 0; i < 600; i++) sim.tick();
+    return new Map(sn.map((d) => [d.id, { x: d.x, y: d.y }]));
+  }
+  const seedOrder = new Map();
+  const walk = (n) => { if (seedOrder.has(n.id)) return; seedOrder.set(n.id, seedOrder.size); [...n.children].sort((a, b) => b.desc.size - a.desc.size).forEach(walk); };
+  nodes.filter((n) => !n.parents.length).forEach(walk);
+  const layouts = {};
+  let mode = "radial", ringAlpha = 1;
+  layouts.radial = simulate("radial");
+  for (const n of nodes) Object.assign(n, layouts.radial.get(n.id));
+
+  // ---------- Theme ----------
+  let T = {};
+  function readTheme() {
+    const cs = getComputedStyle(document.documentElement), v = (k) => cs.getPropertyValue(k).trim();
+    T = { dark: v("--dark") === "1", bg: v("--bg"), ink: v("--ink"), muted: v("--muted"), edge: v("--edge"), ring: v("--ring"), accent: v("--accent") };
+    for (const n of nodes) n.color = DOMAIN_COLORS[n.domain]?.[T.dark ? 1 : 0] ?? T.muted;
+    renderLegend();
+    requestDraw();
+  }
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", readTheme);
+  new MutationObserver(readTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  // ---------- Canvas & zoom ----------
+  const ctx = canvas.getContext("2d");
+  let W = 0, H = 0, dpr = 1, transform = d3.zoomIdentity;
+  const zoom = d3.zoom().scaleExtent([0.08, 8]).on("zoom", (e) => { transform = e.transform; requestDraw(); });
+  const sel = d3.select(canvas).call(zoom).on("dblclick.zoom", null);
+
+  function resize() {
+    const r = stage.getBoundingClientRect();
+    W = r.width; H = r.height; dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    requestDraw();
+  }
+  new ResizeObserver(resize).observe(stage);
+
+  // The part of the canvas not covered by the reading panel.
+  function viewport() {
+    if (isNarrow()) { const ph = panel.classList.contains("collapsed") ? 70 : Math.min(H * 0.52, panel.offsetHeight || 0); return { x: 0, y: 50, w: W, h: Math.max(120, H - ph - 50) }; }
+    const pw = panel.offsetWidth + 32;
+    return { x: 0, y: 56, w: Math.max(200, W - pw), h: H - 56 };
+  }
+  function fit(animate = true) {
+    const xs = nodes.map((n) => n.x), ys = nodes.map((n) => n.y);
+    const [x0, x1] = d3.extent(xs), [y0, y1] = d3.extent(ys);
+    const v = viewport(), pad = 40;
+    const k = Math.min((v.w - pad * 2) / (x1 - x0 + 60), (v.h - pad * 2) / (y1 - y0 + 60), 2);
+    const t = d3.zoomIdentity.translate(v.x + v.w / 2 - k * (x0 + x1) / 2, v.y + v.h / 2 - k * (y0 + y1) / 2).scale(k);
+    (animate && !reduceMotion ? sel.transition().duration(600) : sel).call(zoom.transform, t);
+  }
+  function flyTo(n) {
+    const v = viewport(), k = Math.max(transform.k, 1.3);
+    const t = d3.zoomIdentity.translate(v.x + v.w / 2 - n.x * k, v.y + v.h / 2 - n.y * k).scale(k);
+    (reduceMotion ? sel : sel.transition().duration(750)).call(zoom.transform, t);
+  }
+  $("#zoom-in").onclick = () => sel.transition().duration(250).call(zoom.scaleBy, 1.5);
+  $("#zoom-out").onclick = () => sel.transition().duration(250).call(zoom.scaleBy, 1 / 1.5);
+  $("#zoom-fit").onclick = () => fit();
+
+  // ---------- Focus state ----------
+  let selected = null, hovered = null, spotlight = null;
+  let emph = new Map();              // node -> 0 dim, 1 normal, 2 medium, 3 strong
+  function computeFocus() {
+    emph = new Map();
+    const set = (n, v) => emph.set(n, Math.max(emph.get(n) ?? 0, v));
+    if (selected) {
+      set(selected, 3); for (const a of selected.anc) set(a, 3); for (const c of selected.children) set(c, 2);
+    } else if (hovered) {
+      set(hovered, 3); for (const m of hovered.parents) set(m, 2); for (const m of hovered.children) set(m, 2);
+    } else if (spotlight) {
+      for (const n of nodes) if (n.domain === spotlight) set(n, 1);
+    } else {
+      for (const n of nodes) set(n, 1);
+    }
+    requestDraw();
+  }
+  const em = (n) => emph.get(n) ?? 0;
+  function edgeEmph(l) {
+    const s = l.source, t = l.target;
+    if (selected) {
+      if (t === selected || (selected.anc.has(t) && selected.anc.has(s))) return 3;
+      if (s === selected) return 2;
+      return 0;
+    }
+    if (hovered) return s === hovered || t === hovered ? 2 : 0;
+    if (spotlight) return s.domain === spotlight && t.domain === spotlight ? 1 : 0;
+    return 1;
+  }
+
+  // ---------- Drawing ----------
+  let drawQueued = false;
+  function requestDraw() { if (!drawQueued) { drawQueued = true; requestAnimationFrame(() => { drawQueued = false; draw(); }); } }
+
+  function shapePath(n, r) {
+    ctx.beginPath();
+    if (n.kind === "axiom") { const s = r * 1.25; ctx.moveTo(n.x, n.y - s); ctx.lineTo(n.x + s, n.y); ctx.lineTo(n.x, n.y + s); ctx.lineTo(n.x - s, n.y); ctx.closePath(); }
+    else ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+  }
+  function edgeCurve(s, t) {
+    const dx = t.x - s.x, dy = t.y - s.y, c = 0.12;
+    const mx = (s.x + t.x) / 2 - dy * c, my = (s.y + t.y) / 2 + dx * c;
+    ctx.moveTo(s.x, s.y); ctx.quadraticCurveTo(mx, my, t.x, t.y);
+    return [mx, my];
+  }
+  function arrow(t, mx, my, size) {
+    const a = Math.atan2(t.y - my, t.x - mx), tipX = t.x - Math.cos(a) * (t.r * (t.kind === "axiom" ? 1.25 : 1) + 2), tipY = t.y - Math.sin(a) * (t.r + 2);
+    ctx.moveTo(tipX, tipY);
+    ctx.lineTo(tipX - Math.cos(a - 0.45) * size, tipY - Math.sin(a - 0.45) * size);
+    ctx.lineTo(tipX - Math.cos(a + 0.45) * size, tipY - Math.sin(a + 0.45) * size);
+    ctx.closePath();
+  }
+
+  function draw() {
+    const k = transform.k;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = T.bg; ctx.fillRect(0, 0, W, H);
+    ctx.save();
+    ctx.translate(transform.x, transform.y); ctx.scale(k, k);
+
+    // Depth rings: each ring is one more step away from the axioms.
+    if (ringAlpha > 0.01) {
+      ctx.globalAlpha = ringAlpha; ctx.strokeStyle = T.ring; ctx.lineWidth = 1 / k;
+      for (let d = 1; d <= maxDepth; d++) { ctx.beginPath(); ctx.arc(0, 0, ringR[d], 0, Math.PI * 2); ctx.stroke(); }
+      ctx.globalAlpha = 1;
+    }
+
+    // Edges, faint first, emphasised last.
+    const buckets = [[], [], [], []];
+    for (const l of links) buckets[edgeEmph(l)].push(l);
+    const edgeStyle = [
+      [T.edge, T.dark ? 0.06 : 0.05, 1],
+      [T.edge, T.dark ? 0.26 : 0.22, 1],
+      [null, 0.75, 1.4],
+      [T.ink, 0.8, 1.6]
+    ];
+    buckets.forEach((list, i) => {
+      if (!list.length) return;
+      const [color, alpha, w] = edgeStyle[i];
+      ctx.globalAlpha = alpha; ctx.lineWidth = w / k;
+      if (i < 2 || i === 3) {
+        ctx.strokeStyle = color; ctx.fillStyle = color;
+        ctx.beginPath(); const ends = list.map((l) => [l.target, ...edgeCurve(l.source, l.target)]); ctx.stroke();
+        if (i === 3) { ctx.beginPath(); for (const [t, mx, my] of ends) arrow(t, mx, my, 7 / k); ctx.fill(); }
+      } else {
+        for (const l of list) {
+          const c = l.target.color; ctx.strokeStyle = c; ctx.fillStyle = c;
+          ctx.beginPath(); const [mx, my] = edgeCurve(l.source, l.target); ctx.stroke();
+          ctx.beginPath(); arrow(l.target, mx, my, 7 / k); ctx.fill();
+        }
+      }
+    });
+    ctx.globalAlpha = 1;
+
+    // Nodes.
+    const order = [...nodes].sort((a, b) => em(a) - em(b));
+    for (const n of order) {
+      const e = em(n);
+      ctx.globalAlpha = e === 0 ? (T.dark ? 0.18 : 0.16) : 1;
+      if (n.kind === "theorem") {
+        shapePath(n, n.r); ctx.fillStyle = T.bg; ctx.fill();
+        ctx.lineWidth = Math.max(1.6 / k, n.r * 0.42); ctx.strokeStyle = n.color; shapePath(n, n.r * 0.8); ctx.stroke();
+      } else { shapePath(n, n.r); ctx.fillStyle = n.color; ctx.fill(); }
+      if (n === selected || n === hovered) {
+        ctx.globalAlpha = 1; ctx.lineWidth = 2 / k; ctx.strokeStyle = T.ink;
+        shapePath(n, n.r + 4 / k + 2); ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+    drawLabels(k);
+  }
+
+  function drawLabels(k) {
+    const placed = [];
+    const hit = (r) => placed.some((p) => r.x < p.x + p.w && r.x + r.w > p.x && r.y < p.y + p.h && r.y + r.h > p.y);
+    const tx = transform.x, ty = transform.y;
+    ctx.textBaseline = "top"; ctx.textAlign = "center"; ctx.lineJoin = "round";
+
+    // Domain names over their clusters when zoomed out.
+    const dAlpha = Math.max(0, Math.min(1, (0.6 - k) / 0.15));
+    if (dAlpha > 0 && mode === "free" && ringAlpha < 0.05 && !selected && !hovered) {
+      ctx.font = `600 italic ${W < 600 ? 14 : 17}px ${getFont("--font-display")}`;
+      for (const [id, d] of domains) {
+        const ms = nodes.filter((n) => n.domain === id);
+        const cx = d3.median(ms, (n) => n.x) * k + tx, cy = d3.median(ms, (n) => n.y) * k + ty;
+        const w = ctx.measureText(d.name).width, r = { x: cx - w / 2 - 4, y: cy - 10, w: w + 8, h: 24 };
+        if (hit(r)) continue;
+        placed.push(r);
+        ctx.globalAlpha = dAlpha * (spotlight && spotlight !== id ? 0.25 : 1);
+        ctx.lineWidth = 4; ctx.strokeStyle = T.bg; ctx.strokeText(d.name, cx, cy - 8);
+        ctx.fillStyle = DOMAIN_COLORS[id][T.dark ? 1 : 0]; ctx.fillText(d.name, cx, cy - 8);
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    const forced = new Set([selected, hovered].filter(Boolean));
+    const cand = nodes.filter((n) => {
+      const sx = n.x * k + tx, sy = n.y * k + ty;
+      if (sx < -100 || sx > W + 100 || sy < -40 || sy > H + 40) return false;
+      if (forced.has(n)) return true;
+      const e = em(n);
+      if (e === 0) return false;
+      if (e >= 2) return true;
+      return n.r * k >= 6.5;
+    }).sort((a, b) => (forced.has(b) - forced.has(a)) || (em(b) - em(a)) || (b.r - a.r));
+
+    for (const n of cand) {
+      const strong = forced.has(n);
+      const size = strong ? 14 : 12;
+      ctx.font = `${strong ? 600 : em(n) >= 2 ? 500 : 400} ${size}px ${getFont("--font-body")}`;
+      const sx = n.x * k + tx, sy = n.y * k + ty + n.r * k * (n.kind === "axiom" ? 1.25 : 1) + 3;
+      const w = ctx.measureText(n.name).width, r = { x: sx - w / 2 - 2, y: sy, w: w + 4, h: size + 3 };
+      if (!strong && hit(r)) continue;
+      placed.push(r);
+      ctx.lineWidth = 3.5; ctx.strokeStyle = T.bg; ctx.strokeText(n.name, sx, sy);
+      ctx.fillStyle = em(n) >= 2 || strong ? T.ink : T.muted; ctx.fillText(n.name, sx, sy);
+    }
+
+    // Ring captions along the top of each ring.
+    if (ringAlpha > 0.01 && k > 0.3) {
+      ctx.font = `400 10px ${getFont("--font-mono")}`; ctx.fillStyle = T.muted; ctx.globalAlpha = ringAlpha * 0.9;
+      for (let d = 1; d <= maxDepth; d += (k > 0.7 ? 1 : 2)) {
+        const sx = tx, sy = ty - ringR[d] * k - 14;
+        const r = { x: sx - 20, y: sy, w: 40, h: 12 };
+        if (sy < 0 || sy > H || hit(r)) continue;
+        placed.push(r); ctx.fillText(`step ${d}`, sx, sy);
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+  const fontCache = {};
+  const getFont = (v) => fontCache[v] ??= getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+  // ---------- Layout switching ----------
+  function setMode(next) {
+    if (next === mode) return;
+    mode = next;
+    $("#mode-radial").setAttribute("aria-pressed", mode === "radial");
+    $("#mode-free").setAttribute("aria-pressed", mode === "free");
+    const target = layouts[mode] ??= simulate(mode);
+    const from = new Map(nodes.map((n) => [n, { x: n.x, y: n.y }]));
+    const ring0 = ringAlpha, ring1 = mode === "radial" ? 1 : 0;
+    const finish = () => { for (const n of nodes) Object.assign(n, target.get(n.id)); ringAlpha = ring1; selected ? flyTo(selected) : fit(); requestDraw(); };
+    if (reduceMotion) return finish();
+    const t0 = performance.now(), dur = 900;
+    (function step(now) {
+      const t = Math.min(1, (now - t0) / dur), e = d3.easeCubicInOut(t);
+      for (const n of nodes) { const a = from.get(n), b = target.get(n.id); n.x = a.x + (b.x - a.x) * e; n.y = a.y + (b.y - a.y) * e; }
+      ringAlpha = ring0 + (ring1 - ring0) * e;
+      requestDraw();
+      if (t < 1) requestAnimationFrame(step); else finish();
+    })(t0);
+  }
+  $("#mode-radial").onclick = () => setMode("radial");
+  $("#mode-free").onclick = () => setMode("free");
+
+  // ---------- Pointer ----------
+  function nodeAt(px, py) {
+    const [x, y] = transform.invert([px, py]);
+    let best = null, bestD = Infinity;
+    for (const n of nodes) {
+      const d = Math.hypot(n.x - x, n.y - y), reach = n.r + 6 / transform.k;
+      if (d < reach && d < bestD) { best = n; bestD = d; }
+    }
+    return best;
+  }
+  canvas.addEventListener("pointermove", (e) => {
+    if (e.pointerType === "touch") return;
+    const r = canvas.getBoundingClientRect(), n = nodeAt(e.clientX - r.left, e.clientY - r.top);
+    if (n !== hovered) { hovered = n; canvas.classList.toggle("pointer", !!n); if (!selected) computeFocus(); else requestDraw(); }
+  });
+  canvas.addEventListener("pointerleave", () => { if (hovered) { hovered = null; canvas.classList.remove("pointer"); if (!selected) computeFocus(); else requestDraw(); } });
+  canvas.addEventListener("click", (e) => {
+    const r = canvas.getBoundingClientRect(), n = nodeAt(e.clientX - r.left, e.clientY - r.top);
+    if (n) select(n, { fly: false }); else if (selected) select(null);
+  });
+
+  // ---------- Selection & panel ----------
+  function select(n, { fly = true } = {}) {
+    selected = n;
+    hovered = null;
+    try { history.replaceState(null, "", n ? "#" + n.id : location.pathname + location.search); } catch (_) {}
+    renderPanel();
+    computeFocus();
+    if (n && fly) flyTo(n);
+  }
+
+  const chip = (n) => `<button class="chip" data-id="${esc(n.id)}"><span class="swatch" style="background:${n.color}"></span>${esc(n.name)}</button>`;
+  function renderPanel() {
+    const n = selected;
+    if (!n) {
+      const starters = STARTERS.map((id) => byId.get(id)).filter(Boolean);
+      const axioms = nodes.filter((m) => m.kind === "axiom");
+      panelBody.innerHTML = `
+        <div class="head"><div><div class="eyebrow"><span class="kind">About this map</span></div>
+          <h2>Every idea rests on earlier ones</h2></div>
+          <button class="close toggle-sheet" id="sheet-toggle" aria-label="Show or hide the introduction">${panel.classList.contains("collapsed") ? "▴" : "▾"}</button></div>
+        <p class="lede">Each dot is a concept or theorem. An arrow runs from an idea to the ideas built on top of it, the way the <i>Principia Mathematica</i> builds arithmetic out of logic.</p>
+        <p>In the <b>Foundations</b> view, propositional logic sits at the centre and each ring is one more step of dependency away from it. Switch to <b>Clusters</b> to let the concepts settle by their connections alone. The colours mark traditional domains, but the layout never uses them: the clusters you see come only from what depends on what.</p>
+        <p>Bigger dots support more of the map. Select any dot to trace everything it rests on, all the way down to the axioms.</p>
+        <div class="stats">
+          <div class="stat"><b>${nodes.length}</b><span>concepts and theorems</span></div>
+          <div class="stat"><b>${links.length}</b><span>dependencies</span></div>
+          <div class="stat"><b>${maxDepth}</b><span>steps from logic to the deepest result</span></div>
+        </div>
+        <h3>Start somewhere</h3>
+        <div class="chips">${starters.map(chip).join("")}</div>
+        <h3>The axioms</h3>
+        <div class="chips">${axioms.map(chip).join("")}</div>
+        <p class="note" style="margin-top:18px">A first prototype seeded with ${nodes.length} ideas. The data lives in one file and is meant to grow.</p>`;
+    } else {
+      const d = domains.get(n.domain);
+      const parents = [...n.parents].sort(byName), children = [...n.children].sort(byName);
+      const wiki = "https://en.wikipedia.org/wiki/Special:Search?search=" + encodeURIComponent(n.name.replace(/\s*\(.*\)$/, ""));
+      panelBody.innerHTML = `
+        <div class="head"><div class="eyebrow">
+            <span class="swatch" style="background:${n.color}"></span><span>${esc(d?.name ?? n.domain)}</span>
+            <span aria-hidden="true">·</span><span class="kind">${KIND_LABEL[n.kind] ?? n.kind}</span></div>
+          <button class="close" id="close" aria-label="Close and return to the overview">×</button></div>
+        <h2>${esc(n.name)}</h2>
+        <p class="lede">${esc(n.summary)}</p>
+        <div class="stats">
+          <div class="stat"><b>${n.depth}</b><span>steps from the axioms</span></div>
+          <div class="stat"><b>${n.anc.size}</b><span>ideas it rests on</span></div>
+          <div class="stat"><b>${n.desc.size}</b><span>ideas built on it</span></div>
+        </div>
+        <h3>Builds directly on</h3>
+        ${parents.length ? `<div class="chips">${parents.map(chip).join("")}</div>` : `<p class="muted">Nothing. This is where the map begins.</p>`}
+        <h3>Leads directly to</h3>
+        ${children.length ? `<div class="chips">${children.map(chip).join("")}</div>` : `<p class="muted">Nothing on this map yet.</p>`}
+        <p class="note" style="margin-top:18px">On the map, its full chain of prerequisites is drawn in dark arrows and the ideas it leads to in colour.
+        <a href="${wiki}" target="_blank" rel="noopener">Read more on Wikipedia</a></p>`;
+      panel.classList.remove("collapsed");
+    }
+    panelBody.scrollTop = 0;
+  }
+  panelBody.addEventListener("click", (e) => {
+    const c = e.target.closest(".chip"); if (c) return select(byId.get(c.dataset.id));
+    if (e.target.closest("#close")) return select(null);
+    if (e.target.closest("#sheet-toggle")) { panel.classList.toggle("collapsed"); renderPanel(); }
+  });
+
+  // ---------- Legend ----------
+  function renderLegend() {
+    const counts = d3.rollup(nodes, (v) => v.length, (n) => n.domain);
+    $("#legend-body").innerHTML = data.domains.map((d) => `
+      <button class="dom-btn" data-domain="${esc(d.id)}" aria-pressed="${spotlight === d.id}">
+        <span class="swatch" style="background:${DOMAIN_COLORS[d.id]?.[T.dark ? 1 : 0]}"></span>${esc(d.name)}<span class="n">${counts.get(d.id) ?? 0}</span>
+      </button>`).join("") + `
+      <div class="shapes" aria-label="Shapes">
+        <span class="shape"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M6 0.5L11.5 6 6 11.5 0.5 6z" fill="currentColor"/></svg>Axiom</span>
+        <span class="shape"><svg width="11" height="11" viewBox="0 0 12 12"><circle cx="6" cy="6" r="5" fill="currentColor"/></svg>Concept</span>
+        <span class="shape"><svg width="11" height="11" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4" fill="none" stroke="currentColor" stroke-width="2.4"/></svg>Theorem</span>
+      </div>`;
+  }
+  $("#legend-body").addEventListener("click", (e) => {
+    const b = e.target.closest(".dom-btn"); if (!b) return;
+    spotlight = spotlight === b.dataset.domain ? null : b.dataset.domain;
+    if (selected) select(null);
+    renderLegend(); computeFocus();
+  });
+
+  // ---------- Search ----------
+  const q = $("#q"), results = $("#results");
+  let matches = [], active = 0;
+  function renderResults() {
+    const term = q.value.trim().toLowerCase();
+    if (!term) { results.hidden = true; return; }
+    matches = nodes.filter((n) => n.name.toLowerCase().includes(term) || n.summary.toLowerCase().includes(term))
+      .sort((a, b) => (b.name.toLowerCase().startsWith(term) - a.name.toLowerCase().startsWith(term)) || (b.name.toLowerCase().includes(term) - a.name.toLowerCase().includes(term)) || byName(a, b))
+      .slice(0, 8);
+    active = 0;
+    results.innerHTML = matches.length
+      ? matches.map((n, i) => `<li><button role="option" data-id="${esc(n.id)}" aria-selected="${i === active}"><span class="swatch" style="background:${n.color}"></span>${esc(n.name)}<span class="dom">${esc(domains.get(n.domain)?.name ?? "")}</span></button></li>`).join("")
+      : `<li class="empty">No concept matches “${esc(q.value.trim())}” yet.</li>`;
+    results.hidden = false;
+  }
+  function choose(n) { if (!n) return; q.value = ""; results.hidden = true; q.blur(); select(n); }
+  q.addEventListener("input", renderResults);
+  q.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault(); if (!matches.length) return;
+      active = (active + (e.key === "ArrowDown" ? 1 : matches.length - 1)) % matches.length;
+      results.querySelectorAll("button").forEach((b, i) => b.setAttribute("aria-selected", i === active));
+    } else if (e.key === "Enter") { e.preventDefault(); choose(matches[active]); }
+    else if (e.key === "Escape") { q.value = ""; results.hidden = true; }
+  });
+  results.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) choose(byId.get(b.dataset.id)); });
+  document.addEventListener("click", (e) => { if (!e.target.closest(".search")) results.hidden = true; });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "/" && document.activeElement !== q) { e.preventDefault(); q.focus(); }
+    else if (e.key === "Escape" && document.activeElement !== q && selected) select(null);
+  });
+
+  // ---------- Start ----------
+  if (isNarrow()) { panel.classList.add("collapsed"); $("#legend").open = false; }
+  readTheme();
+  resize();
+  renderPanel();
+  computeFocus();
+  const fromHash = byId.get(decodeURIComponent(location.hash.slice(1)));
+  fit(false);
+  if (fromHash) select(fromHash);
+  document.fonts?.ready.then(requestDraw);
+})();
+</script>
+
+</body>
+</html>
