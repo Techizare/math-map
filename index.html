@@ -195,7 +195,7 @@ canvas:active { cursor: grabbing; }
     "probability":            ["#6340b8", "#b39cff"]
   };
   const KIND_LABEL = { axiom: "Axiom", concept: "Concept", theorem: "Theorem" };
-  const RING = 58;
+  const RING = 58, RING_GAP = 36;
   const STARTERS = ["pythagorean-theorem", "eulers-formula", "central-limit-theorem", "fermats-last-theorem", "godel-incompleteness", "poincare-conjecture"];
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -233,9 +233,12 @@ canvas:active { cursor: grabbing; }
   };
   for (const n of nodes) { depthOf(n); n.anc = closure(n, "parents"); n.desc = closure(n, "children"); n.r = 3 + 1.5 * Math.sqrt(n.desc.size); }
   const maxDepth = Math.max(...nodes.map((n) => n.depth));
-  // Ring radii grow with the square root of how many ideas sit at or inside that step, so the disc fills evenly.
+  // Ring radii grow with the square root of how many ideas sit at or inside that step, so the disc fills evenly,
+  // but never closer than RING_GAP, so sparse outer steps still get a band of their own.
   const ringR = [];
-  { let before = 0; for (let d = 0; d <= maxDepth; d++) { const c = nodes.filter((n) => n.depth === d).length; ringR[d] = d === 0 ? 0 : RING * Math.sqrt(before + c / 2); before += c; } }
+  { let before = 0; for (let d = 0; d <= maxDepth; d++) { const c = nodes.filter((n) => n.depth === d).length; ringR[d] = d === 0 ? 0 : Math.max(RING * Math.sqrt(before + c / 2), ringR[d - 1] + RING_GAP); before += c; } }
+  // Each step owns the band halfway to its neighbouring rings; the layout keeps every idea inside its own band.
+  const bands = ringR.map((r, d) => [d === 0 ? 0 : (ringR[d - 1] + r) / 2 + 3, d === maxDepth ? r + RING_GAP / 2 : (r + ringR[d + 1]) / 2 - 3]);
   const byName = (a, b) => a.name.localeCompare(b.name);
   $("#tagline").textContent = `${nodes.length} ideas, and the ideas they rest on`;
 
@@ -255,7 +258,12 @@ canvas:active { cursor: grabbing; }
       .stop();
     if (mode === "radial") sim.force("radial", d3.forceRadial((d) => ringR[d.depth], 0, 0).strength(0.9));
     else sim.force("x", d3.forceX(0).strength(0.04)).force("y", d3.forceY(0).strength(0.04));
-    for (let i = 0; i < 600; i++) sim.tick();
+    // After every step, pull any idea that has strayed out of its band back to the band's edge.
+    const keepInBand = () => { for (const d of sn) {
+      const r = Math.hypot(d.x, d.y), [lo, hi] = bands[d.depth], t = Math.min(hi, Math.max(lo, r));
+      if (r > 0 && t !== r) { d.x *= t / r; d.y *= t / r; d.vx = d.vy = 0; }
+    } };
+    for (let i = 0; i < 600; i++) { sim.tick(); if (mode === "radial") keepInBand(); }
     return new Map(sn.map((d) => [d.id, { x: d.x, y: d.y }]));
   }
   const seedOrder = new Map();
