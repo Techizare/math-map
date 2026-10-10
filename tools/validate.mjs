@@ -1,4 +1,4 @@
-// Checks data/concepts.json: unique ids, known domains, known prerequisites, no cycles.
+// Checks data/concepts.json: unique ids, known domains, known prerequisites, no cycles, a year and origin for every idea.
 // Also checks data/details.json, if it sits next to it: every entry belongs to a known concept and has all its sections.
 // Usage: node tools/validate.mjs [path/to/concepts.json]
 import { readFileSync, existsSync } from "node:fs";
@@ -19,6 +19,9 @@ for (const c of data.concepts) {
   if (!domains.has(c.domain)) errors.push(`${c.id}: unknown domain "${c.domain}"`);
   if (!KINDS.has(c.kind)) errors.push(`${c.id}: kind must be axiom, concept or theorem`);
   if (!c.name || !c.summary) errors.push(`${c.id}: missing name or summary`);
+  if (!Number.isInteger(c.year) || c.year < -3500 || c.year > new Date().getFullYear()) errors.push(`${c.id}: year must be a whole number between -3500 and this year`);
+  if (typeof c.origin !== "string" || !c.origin.trim()) errors.push(`${c.id}: missing origin`);
+  if ("circa" in c && typeof c.circa !== "boolean") errors.push(`${c.id}: circa must be true or false`);
 }
 for (const c of data.concepts) {
   for (const r of c.requires) if (!byId.has(r)) errors.push(`${c.id}: requires unknown concept "${r}"`);

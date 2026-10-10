@@ -23,6 +23,7 @@ An interactive, zoomable map of mathematical ideas. Each concept is a node; an a
 - **Rendering.** Canvas, not SVG, so it stays fast as the dataset grows into the thousands. Labels appear by importance as you zoom in, with simple collision avoidance.
 - **Compare.** Select a concept, press *Compare with another idea* (or shift-click a second dot), and the map shows how the two are related: the routes from one to the other, or their nearest shared prerequisites and the first ideas that build on both.
 - **Explanations.** Each concept panel has an expandable *Explanation and example*: the idea in plain words, the most elegant worked example, and why it matters. Some concepts also have a looping animation, which pauses on request and starts paused for people who prefer reduced motion. Maths is written in TeX and rendered to MathML by KaTeX 0.16.9 from cdnjs, loaded only when an explanation is opened.
+- **Timeline.** Press *Timeline* and a scrubber appears along the bottom. Every idea starts grey and fades into its domain colour as the scrubber reaches the year it was first known, with a ripple and a label as it arrives; press play to watch roughly 5,000 years go by in about 40 seconds. The scale is stretched where the map is crowded (1800 to 2000) and squeezed across the quiet centuries, and the rug of ticks under it shows when each idea arrived. The overview counts the arrows that run backwards in time, where an idea was known before the foundation it now rests on.
 - **Deep links.** `#concept-id` opens a concept; `#first-id~second-id` opens a comparison.
 
 ## Data format
@@ -30,6 +31,7 @@ An interactive, zoomable map of mathematical ideas. Each concept is a node; an a
 ```json
 { "id": "galois-theory", "name": "Galois theory", "domain": "algebra", "kind": "concept",
   "requires": ["field-extension", "symmetric-group", "quotient-group"],
+  "year": 1832, "origin": "Galois (published 1846)",
   "summary": "One or two plain sentences a newcomer can follow." }
 ```
 
@@ -37,6 +39,8 @@ An interactive, zoomable map of mathematical ideas. Each concept is a node; an a
 - `domain`: one of the ids in the `domains` list at the top of the file.
 - `kind`: `axiom`, `concept` or `theorem` (drawn as diamond, dot and ring).
 - `requires`: only the *direct* prerequisites. The viewer works out the rest of the chain.
+- `year`: when the idea was first known, negative for BCE. A theorem is dated by its first proof (an ancient one by its earliest record), a concept by its first clear statement, and an open problem by when it was posed. Years before 1500 are shown with "c."; add `"circa": true` for later dates that are only approximate.
+- `origin`: who and where, in a short phrase, with any important earlier or later milestone (for example "Wiles, with Taylor; posed by Fermat around 1637").
 
 ### Explanations
 
