@@ -125,6 +125,27 @@ canvas:active { cursor: grabbing; }
 .chain .arrow { color: var(--muted); font-size: 12px; }
 .chain-label { font-size: 12px; color: var(--muted); margin: 10px 0 6px; }
 .err { padding: 24px; max-width: 60ch; }
+.explain { margin: 14px 0 4px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.explain > summary { display: flex; align-items: center; gap: 8px; padding: 9px 12px; cursor: pointer; list-style: none; font-weight: 600; font-size: 13px; }
+.explain > summary::-webkit-details-marker { display: none; }
+.explain > summary::after { content: "▾"; margin-left: auto; color: var(--muted); }
+.explain:not([open]) > summary::after { content: "▸"; }
+.explain > summary:hover { color: var(--accent); }
+.explain-body { padding: 0 12px 4px; }
+.explain-body h4 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 14px 0 6px; }
+.explain-body .ex-title { font-weight: 600; margin-bottom: 6px; }
+.explain-body ul, .explain-body ol { margin: 0 0 12px; padding-left: 20px; }
+.explain-body li { margin: 3px 0; }
+.explain-body .disp { overflow-x: auto; overflow-y: hidden; margin: 2px 0 12px; padding: 2px 0; }
+.explain-body math { font-size: 1.06em; }
+.explain-body .tex { font-family: var(--font-mono); font-size: 12px; }
+.illus { margin: 4px 0 2px; }
+.illus-frame { position: relative; border-radius: 6px; overflow: hidden; background: var(--surface-2); }
+.illus canvas { display: block; width: 100%; }
+.illus-play { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--muted); cursor: pointer; font-size: 11px; line-height: 1; opacity: .85; }
+.illus-play:hover { color: var(--ink); opacity: 1; }
+.illus figcaption { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.4; }
+@media (min-width: 1100px) { .panel.wide { width: 440px; } }
 
 @media (max-width: 760px) {
   .brand p { display: none; }
@@ -194,6 +215,9 @@ canvas:active { cursor: grabbing; }
     "combinatorics":          ["#b52a3a", "#f27484"],
     "probability":            ["#6340b8", "#b39cff"]
   };
+  // Series colours handed to the illustrations: [light theme, dark theme].
+  const ILLUS_COLORS = [["#2a66ad", "#c05a1b", "#2f8a3e", "#6340b8", "#a3286a"], ["#76abef", "#f2a062", "#82d58f", "#b39cff", "#ee80b6"]];
+  const KATEX_URL = "https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js";
   const KIND_LABEL = { axiom: "Axiom", concept: "Concept", theorem: "Theorem" };
   const RING = 58, RING_GAP = 36;
   const STARTERS = ["pythagorean-theorem", "eulers-formula", "central-limit-theorem", "fermats-last-theorem", "godel-incompleteness", "poincare-conjecture"];
@@ -279,7 +303,10 @@ canvas:active { cursor: grabbing; }
   function readTheme() {
     const cs = getComputedStyle(document.documentElement), v = (k) => cs.getPropertyValue(k).trim();
     T = { dark: v("--dark") === "1", bg: v("--bg"), ink: v("--ink"), muted: v("--muted"), edge: v("--edge"), ring: v("--ring"), accent: v("--accent") };
+    T.illus = { dark: T.dark, bg: v("--surface-2"), surface: v("--surface"), ink: T.ink, muted: T.muted, line: v("--line"), accent: T.accent,
+      colors: ILLUS_COLORS[T.dark ? 1 : 0], font: v("--font-body"), mono: v("--font-mono") };
     for (const n of nodes) n.color = DOMAIN_COLORS[n.domain]?.[T.dark ? 1 : 0] ?? T.muted;
+    illusRun?.paint();
     renderLegend();
     requestDraw();
   }
@@ -642,9 +669,111 @@ canvas:active { cursor: grabbing; }
       ${body}`;
   }
 
+  // ---------- Long explanations ----------
+  // data/details.json holds a longer explanation and a worked example for each idea, fetched the first time one is opened.
+  // The text is a small Markdown subset with TeX maths, which KaTeX (loaded on demand) renders to MathML;
+  // without KaTeX the TeX source is shown as it is. Animations live in data/illustrations.js, also loaded on demand.
+  const loadScript = (src) => new Promise((ok, fail) => {
+    const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => fail(new Error(`couldn't load ${src}`)); document.head.append(s);
+  });
+  let detailsP = null, katexP = null, illusP = null, illusRun = null, explainOpen = false;
+  try { explainOpen = localStorage.getItem("explain-open") === "1"; } catch {}
+  const getDetails = () => detailsP ??= fetch("data/details.json").then((r) => { if (!r.ok) throw new Error(r.status + " " + r.statusText); return r.json(); });
+  const getKatex = () => katexP ??= loadScript(KATEX_URL).catch(() => null);
+  const getIllus = () => illusP ??= loadScript("data/illustrations.js").catch(() => null);
+
+  function tex(src, display) {
+    if (window.katex) try { return katex.renderToString(src, { displayMode: display, output: "mathml", throwOnError: false, strict: "ignore" }); } catch {}
+    return `<code class="tex">${esc(display ? src : `$${src}$`)}</code>`;
+  }
+  const prose = (s) => esc(s.replace(/\u0001/g, "$")).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/(^|[^*\w])\*(?!\s)(.+?)\*(?!\w)/g, "$1<i>$2</i>");
+  function inlineMd(s) {
+    s = s.replace(/\\\$/g, "\u0001");
+    let out = "", last = 0;
+    for (const m of s.matchAll(/\$([^$\n]+)\$/g)) { out += prose(s.slice(last, m.index)) + tex(m[1].replace(/\u0001/g, "\\$"), false); last = m.index + m[0].length; }
+    return out + prose(s.slice(last));
+  }
+  function md(text) {
+    return text.trim().split(/\n\s*\n/).map((block) => {
+      const disp = block.trim().match(/^\$\$([\s\S]+)\$\$$/);
+      if (disp) return `<div class="disp">${tex(disp[1].trim(), true)}</div>`;
+      // Group the block's lines into a paragraph and bullet or numbered lists; an unmarked line continues the item above it.
+      const segs = [];
+      for (const line of block.trim().split("\n")) {
+        const ul = line.match(/^\s*[-*]\s+(.*)/), ol = line.match(/^\s*\d+[.)]\s+(.*)/), kind = ul ? "ul" : ol ? "ol" : "p", last = segs.at(-1);
+        if (kind !== "p") { if (last?.kind === kind) last.items.push((ul || ol)[1]); else segs.push({ kind, items: [(ul || ol)[1]] }); }
+        else if (last) last.items[last.items.length - 1] += " " + line.trim();
+        else segs.push({ kind: "p", items: [line.trim()] });
+      }
+      return segs.map((g) => g.kind === "p" ? `<p>${inlineMd(g.items[0])}</p>` : `<${g.kind}>${g.items.map((i) => `<li>${inlineMd(i)}</li>`).join("")}</${g.kind}>`).join("");
+    }).join("");
+  }
+  const explainBlock = () => `
+    <details class="explain" id="explain"${explainOpen ? " open" : ""}>
+      <summary>Explanation and example</summary>
+      <div class="explain-body" id="explain-body"><p class="muted">Loading…</p></div>
+    </details>`;
+  async function fillExplain(n) {
+    const box = $("#explain-body");
+    if (!box || box.dataset.id === n.id) return;
+    box.dataset.id = n.id;
+    let all;
+    try { [all] = await Promise.all([getDetails(), getKatex()]); }
+    catch (e) { detailsP = null; delete box.dataset.id; box.innerHTML = `<p class="muted">Couldn't load the explanations (${esc(e.message)}).</p>`; return; }
+    if (!box.isConnected || selected !== n) return;
+    const d = all.details[n.id];
+    if (!d) { box.innerHTML = `<p class="muted">There's no longer explanation for this idea yet.</p>`; return; }
+    const animated = all.illustrated?.includes(n.id);
+    box.innerHTML = `
+      ${animated ? `<figure class="illus" id="illus"><div class="illus-frame"><canvas aria-hidden="true"></canvas>
+        <button class="illus-play" id="illus-play"></button></div><figcaption></figcaption></figure>` : ""}
+      <h4>The idea</h4>${md(d.intuition)}
+      <h4>Example</h4><p class="ex-title">${inlineMd(d.exampleTitle)}</p>${md(d.example)}
+      <h4>Why it matters</h4>${md(d.why)}`;
+    if (animated && (await getIllus(), box.isConnected && selected === n)) mountIllustration(n.id);
+  }
+  function stopIllustration() {
+    if (!illusRun) return;
+    cancelAnimationFrame(illusRun.raf); illusRun.ro.disconnect(); illusRun = null;
+  }
+  function mountIllustration(id) {
+    stopIllustration();
+    const il = window.MathIllustrations?.[id], fig = $("#illus");
+    if (!fig) return;
+    if (!il) { fig.remove(); return; }
+    const cv = fig.querySelector("canvas"), c = cv.getContext("2d"), btn = $("#illus-play");
+    fig.querySelector("figcaption").textContent = il.caption;
+    const run = illusRun = { raf: 0, playing: !reduceMotion, t: reduceMotion ? (il.still ?? il.duration * 0.6) : 0, last: null, w: 0, h: 0, r: 1 };
+    run.paint = () => {
+      c.setTransform(run.r, 0, 0, run.r, 0, 0); c.fillStyle = T.illus.bg; c.fillRect(0, 0, run.w, run.h);
+      try { il.draw(c, run.w, run.h, run.t % il.duration, T.illus); } catch (e) { console.warn(`illustration ${id}:`, e); }
+    };
+    const tick = (now) => {
+      if (illusRun !== run) return;
+      if (run.last != null) run.t = (run.t + Math.min(now - run.last, 100) / 1000) % il.duration;
+      run.last = now; run.paint(); run.raf = requestAnimationFrame(tick);
+    };
+    const play = (on) => {
+      run.playing = on; run.last = null; cancelAnimationFrame(run.raf);
+      btn.textContent = on ? "❚❚" : "▶"; btn.setAttribute("aria-label", on ? "Pause the animation" : "Play the animation");
+      if (on) run.raf = requestAnimationFrame(tick); else run.paint();
+    };
+    btn.onclick = () => play(!run.playing);
+    run.ro = new ResizeObserver(() => {
+      const w = cv.parentElement.clientWidth, h = Math.round(w * (il.aspect || 0.62)), r = devicePixelRatio || 1;
+      if (!w || (w === run.w && r === run.r)) return;
+      Object.assign(run, { w, h, r }); cv.width = Math.round(w * r); cv.height = Math.round(h * r); cv.style.height = h + "px";
+      if (!run.playing) run.paint();
+    });
+    run.ro.observe(cv.parentElement);
+    play(run.playing);
+  }
+
   const chip = (n) => `<button class="chip" data-id="${esc(n.id)}"><span class="swatch" style="background:${n.color}"></span>${esc(n.name)}</button>`;
   function renderPanel() {
     const n = selected;
+    stopIllustration();
+    panel.classList.toggle("wide", !!n && !pair && explainOpen);
     if (pair) {
       panelBody.innerHTML = pairPanel();
       panel.classList.remove("collapsed");
@@ -657,7 +786,7 @@ canvas:active { cursor: grabbing; }
           <button class="close toggle-sheet" id="sheet-toggle" aria-label="Show or hide the introduction">${panel.classList.contains("collapsed") ? "▴" : "▾"}</button></div>
         <p class="lede">Each dot is a concept or theorem. An arrow runs from an idea to the ideas built on top of it, the way the <i>Principia Mathematica</i> builds arithmetic out of logic.</p>
         <p>In the <b>Foundations</b> view, propositional logic sits at the centre and each ring is one more step of dependency away from it. Switch to <b>Clusters</b> to let the concepts settle by their connections alone. The colours mark traditional domains, but the layout never uses them: the clusters you see come only from what depends on what.</p>
-        <p>Bigger dots support more of the map. Select any dot to trace everything it rests on, all the way down to the axioms. To see how two ideas are related, select one and press <b>Compare</b>, or shift-click a second dot.</p>
+        <p>Bigger dots support more of the map. Select any dot to trace everything it rests on, all the way down to the axioms, and open <b>Explanation and example</b> for the idea in plain words with a worked example. To see how two ideas are related, select one and press <b>Compare</b>, or shift-click a second dot.</p>
         <div class="stats">
           <div class="stat"><b>${nodes.length}</b><span>concepts and theorems</span></div>
           <div class="stat"><b>${links.length}</b><span>dependencies</span></div>
@@ -679,6 +808,7 @@ canvas:active { cursor: grabbing; }
           <button class="close" id="close" aria-label="Close and return to the overview">×</button></div>
         <h2>${esc(n.name)}</h2>
         <p class="lede">${esc(n.summary)}</p>
+        ${explainBlock()}
         <div class="stats">
           <div class="stat"><b>${n.depth}</b><span>steps from the axioms</span></div>
           <div class="stat"><b>${n.anc.size}</b><span>ideas it rests on</span></div>
@@ -693,9 +823,17 @@ canvas:active { cursor: grabbing; }
         <p class="note" style="margin-top:18px">On the map, its full chain of prerequisites is drawn in dark arrows and the ideas it leads to in colour.
         <a href="${wiki}" target="_blank" rel="noopener">Read more on Wikipedia</a></p>`;
       panel.classList.remove("collapsed");
+      if (explainOpen) fillExplain(n);
     }
     panelBody.scrollTop = 0;
   }
+  panelBody.addEventListener("toggle", (e) => {
+    if (e.target.id !== "explain") return;
+    explainOpen = e.target.open;
+    try { localStorage.setItem("explain-open", explainOpen ? "1" : "0"); } catch {}
+    panel.classList.toggle("wide", explainOpen);
+    if (explainOpen && selected) fillExplain(selected); else stopIllustration();
+  }, true);
   panelBody.addEventListener("click", (e) => {
     const c = e.target.closest(".chip"); if (c) return select(byId.get(c.dataset.id));
     if (e.target.closest("#close")) return select(null);

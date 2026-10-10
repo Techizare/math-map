@@ -1,6 +1,7 @@
 // Checks data/concepts.json: unique ids, known domains, known prerequisites, no cycles.
+// Also checks data/details.json, if it sits next to it: every entry belongs to a known concept and has all its sections.
 // Usage: node tools/validate.mjs [path/to/concepts.json]
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -35,9 +36,22 @@ const visit = (id, stack) => {
 };
 for (const id of byId.keys()) visit(id, []);
 
+// Long explanations.
+const detailsPath = join(dirname(path), "details.json");
+let detailsLine = "";
+if (existsSync(detailsPath)) {
+  const { details = {}, illustrated = [] } = JSON.parse(readFileSync(detailsPath, "utf8"));
+  for (const [id, d] of Object.entries(details)) {
+    if (!byId.has(id)) errors.push(`details.json: unknown concept "${id}"`);
+    for (const k of ["intuition", "exampleTitle", "example", "why"]) if (typeof d[k] !== "string" || !d[k].trim()) errors.push(`details.json: ${id} is missing "${k}"`);
+  }
+  for (const id of illustrated) if (!details[id]) errors.push(`details.json: illustrated "${id}" has no explanation`);
+  detailsLine = `, ${Object.keys(details).length} long explanations, ${illustrated.length} animations`;
+}
+
 const edges = data.concepts.reduce((n, c) => n + c.requires.length, 0);
 if (errors.length) {
   console.error(errors.join("\n"));
   process.exit(1);
 }
-console.log(`OK: ${byId.size} concepts, ${edges} dependencies, ${domains.size} domains`);
+console.log(`OK: ${byId.size} concepts, ${edges} dependencies, ${domains.size} domains${detailsLine}`);
