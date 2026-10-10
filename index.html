@@ -146,6 +146,38 @@ canvas:active { cursor: grabbing; }
 .illus-play:hover { color: var(--ink); opacity: 1; }
 .illus figcaption { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.4; }
 @media (min-width: 1100px) { .panel.wide { width: 440px; } }
+.panel .when { font-size: 13px; color: var(--muted); margin: -4px 0 12px; }
+.panel .when b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Timeline: a scrubber along the bottom of the map; ideas light up in their domain colour as it passes the year they were found. */
+.tl-btn { display: inline-flex; align-items: center; gap: 6px; }
+.tl { left: 16px; right: 372px; bottom: 16px; padding: 10px 12px 8px 10px; }
+@media (min-width: 1100px) { .panel.wide ~ .tl { right: 472px; } }
+.stage.tl-on .legend { bottom: calc(var(--tl-h, 96px) + 28px); }
+.tl-row { display: flex; align-items: center; gap: 12px; }
+.tl-play { flex: none; width: 34px; height: 34px; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink); cursor: pointer; font-size: 12px; line-height: 1; }
+.tl-play:hover { filter: brightness(1.1); }
+.tl-read { flex: none; width: 112px; line-height: 1.15; }
+.tl-read b { display: block; font-family: var(--font-display); font-weight: 600; font-size: 24px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tl-read span { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.tl-track { position: relative; flex: 1; min-width: 0; height: 44px; }
+.tl-rug { position: absolute; left: 0; right: 0; top: 4px; width: 100%; height: 16px; overflow: visible; }
+.tl-axis { position: absolute; left: 0; right: 0; top: 19px; height: 1px; background: var(--line); }
+.tl-ticks { position: absolute; left: 0; right: 0; top: 26px; height: 14px; font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+.tl-ticks span { position: absolute; translate: -50% 0; white-space: nowrap; }
+.tl-ticks span::before { content: ""; position: absolute; left: 50%; top: -6px; height: 4px; border-left: 1px solid var(--line); }
+.tl-range { position: absolute; inset: 0 0 auto; width: 100%; height: 24px; margin: 0; background: none; -webkit-appearance: none; appearance: none; cursor: pointer; }
+.tl-range::-webkit-slider-runnable-track { height: 24px; background: none; }
+.tl-range::-moz-range-track { height: 24px; background: none; }
+.tl-range::-webkit-slider-thumb { -webkit-appearance: none; width: 4px; height: 24px; border-radius: 2px; background: var(--ink); box-shadow: 0 0 0 2px var(--surface); }
+.tl-range::-moz-range-thumb { width: 4px; height: 24px; border: 0; border-radius: 2px; background: var(--ink); box-shadow: 0 0 0 2px var(--surface); }
+.tl-range:focus-visible { outline: none; }
+.tl-range:focus-visible::-webkit-slider-thumb { background: var(--accent); box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
+.tl-range:focus-visible::-moz-range-thumb { background: var(--accent); box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
+.tl .close { width: 28px; height: 28px; margin-left: 0; }
+.tl-latest { display: flex; align-items: center; gap: 6px; margin: 4px 0 0 46px; min-height: 26px; font-size: 12px; color: var(--muted); overflow: hidden; white-space: nowrap; }
+.tl-latest .chip { padding: 1px 8px 1px 6px; font-size: 12px; flex: none; }
+.tl-latest .chip i { font-style: normal; color: var(--muted); font-family: var(--font-mono); font-size: 11px; }
 
 @media (max-width: 760px) {
   .brand p { display: none; }
@@ -157,6 +189,12 @@ canvas:active { cursor: grabbing; }
   .panel.collapsed h2 { font-size: 18px; margin: 2px 0 0; }
   .toggle-sheet { display: inline-block; }
   .legend { bottom: auto; top: 60px; max-width: 220px; }
+  .tl { top: 56px; bottom: auto; left: 8px; right: 8px; padding: 8px 10px 6px 8px; }
+  .stage.tl-on .legend { bottom: auto; top: calc(var(--tl-h, 96px) + 64px); }
+  .tl-row { gap: 8px; }
+  .tl-read { width: 96px; }
+  .tl-read b { font-size: 19px; }
+  .tl-latest { margin-left: 0; }
   .panel h2 { font-size: 22px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
@@ -182,6 +220,8 @@ canvas:active { cursor: grabbing; }
         <button id="mode-radial" aria-pressed="true" title="Axioms at the centre, each ring one step further from them">Foundations</button>
         <button id="mode-free" aria-pressed="false" title="Let concepts settle into clusters by their connections alone">Clusters</button>
       </div>
+      <div class="seg"><button id="tl-toggle" class="tl-btn" aria-pressed="false" title="Watch the ideas appear in the order they were found">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6.3" stroke="currentColor" stroke-width="1.6"/><path d="M8 4.6V8l2.4 1.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>Timeline</button></div>
       <div class="zooms" role="group" aria-label="Zoom">
         <button id="zoom-in" aria-label="Zoom in">+</button>
         <button id="zoom-out" aria-label="Zoom out">−</button>
@@ -193,6 +233,20 @@ canvas:active { cursor: grabbing; }
       <div class="body" id="legend-body"></div>
     </details>
     <aside class="float panel" id="panel" aria-live="polite"><div class="scroll" id="panel-body"></div></aside>
+    <section class="float tl" id="tl" aria-label="Timeline" hidden>
+      <div class="tl-row">
+        <button class="tl-play" id="tl-play" aria-label="Play the timeline">▶</button>
+        <div class="tl-read"><b id="tl-year">Today</b><span id="tl-count"></span></div>
+        <div class="tl-track">
+          <svg class="tl-rug" id="tl-rug" viewBox="0 0 1000 16" preserveAspectRatio="none" aria-hidden="true"></svg>
+          <div class="tl-axis"></div>
+          <div class="tl-ticks" id="tl-ticks" aria-hidden="true"></div>
+          <input class="tl-range" id="tl-range" type="range" min="0" max="1000" step="1" value="1000" aria-label="Year">
+        </div>
+        <button class="close" id="tl-close" aria-label="Close the timeline">×</button>
+      </div>
+      <div class="tl-latest" id="tl-latest" aria-live="off"></div>
+    </section>
   </main>
 </div>
 
@@ -298,16 +352,36 @@ canvas:active { cursor: grabbing; }
   layouts.radial = simulate("radial");
   for (const n of nodes) Object.assign(n, layouts.radial.get(n.id));
 
+  // ---------- Timeline ----------
+  // Each idea carries the year it was first known. The scrubber's scale is stretched where the map is crowded
+  // (1800 to 2000) and squeezed across the quiet centuries. An idea fades in as the scrubber nears its year,
+  // reaches full colour on it, and sends out one ripple just after.
+  const TL_YEARS = [-3500, -500, 1500, 1800, 1900, 2000, 2026], TL_POS = [0, 0.09, 0.2, 0.38, 0.63, 0.92, 1];
+  const TL_TICKS = [-3000, -1000, 500, 1500, 1700, 1800, 1850, 1900, 1950, 2000];
+  const TL_FADE = 0.012, TL_PULSE = 0.035, TL_SECONDS = 42;
+  const tlScale = d3.scaleLinear(TL_YEARS, TL_POS).clamp(true);
+  const tl = { on: false, pos: 1, playing: false, raf: 0, known: -1 };
+  for (const n of nodes) n.tp = tlScale(n.year ?? TL_YEARS.at(-1));
+  const life = (n) => tl.on ? Math.max(0, Math.min(1, (tl.pos - n.tp) / TL_FADE + 1)) : 1;
+  const fresh = (n) => tl.on && tl.pos < 1 && tl.pos >= n.tp && tl.pos - n.tp < TL_PULSE * 1.5;
+  const fmtYear = (y) => y < 0 ? `${-y} BCE` : y < 1000 ? `${y || 1} CE` : `${y}`;
+  const whenText = (n) => (n.circa || n.year < 1500 ? "c. " : "") + fmtYear(n.year);
+  // Arrows that run backwards in time: the idea was known before the foundation it now rests on.
+  const backwards = links.filter((l) => l.source.year > l.target.year).length;
+  const tlBox = $("#tl"), tlRange = $("#tl-range"), tlRug = $("#tl-rug"), tlTicks = $("#tl-ticks");
+
   // ---------- Theme ----------
   let T = {};
   function readTheme() {
     const cs = getComputedStyle(document.documentElement), v = (k) => cs.getPropertyValue(k).trim();
     T = { dark: v("--dark") === "1", bg: v("--bg"), ink: v("--ink"), muted: v("--muted"), edge: v("--edge"), ring: v("--ring"), accent: v("--accent") };
+    T.ghost = T.dark ? "#3d4959" : "#a9b4c0";
     T.illus = { dark: T.dark, bg: v("--surface-2"), surface: v("--surface"), ink: T.ink, muted: T.muted, line: v("--line"), accent: T.accent,
       colors: ILLUS_COLORS[T.dark ? 1 : 0], font: v("--font-body"), mono: v("--font-mono") };
     for (const n of nodes) n.color = DOMAIN_COLORS[n.domain]?.[T.dark ? 1 : 0] ?? T.muted;
     illusRun?.paint();
     renderLegend();
+    renderRug();
     requestDraw();
   }
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", readTheme);
@@ -329,9 +403,10 @@ canvas:active { cursor: grabbing; }
 
   // The part of the canvas not covered by the reading panel.
   function viewport() {
-    if (isNarrow()) { const ph = panel.classList.contains("collapsed") ? 70 : Math.min(H * 0.52, panel.offsetHeight || 0); return { x: 0, y: 50, w: W, h: Math.max(120, H - ph - 50) }; }
+    const th = tl.on ? tlBox.offsetHeight + 12 : 0;
+    if (isNarrow()) { const ph = panel.classList.contains("collapsed") ? 70 : Math.min(H * 0.52, panel.offsetHeight || 0); return { x: 0, y: 50 + th, w: W, h: Math.max(120, H - ph - 50 - th) }; }
     const pw = panel.offsetWidth + 32;
-    return { x: 0, y: 56, w: Math.max(200, W - pw), h: H - 56 };
+    return { x: 0, y: 56, w: Math.max(200, W - pw), h: Math.max(120, H - 56 - th) };
   }
   function fit(animate = true) {
     const xs = nodes.map((n) => n.x), ys = nodes.map((n) => n.y);
@@ -428,7 +503,11 @@ canvas:active { cursor: grabbing; }
 
     // Edges, faint first, emphasised last.
     const buckets = [[], [], [], []];
-    for (const l of links) buckets[edgeEmph(l)].push(l);
+    for (const l of links) {
+      let e = edgeEmph(l);
+      if (e === 1 && tl.on && Math.min(life(l.source), life(l.target)) < 1) e = 0;   // not both known yet
+      buckets[e].push(l);
+    }
     const edgeStyle = [
       [T.edge, T.dark ? 0.06 : 0.05, 1],
       [T.edge, T.dark ? 0.26 : 0.22, 1],
@@ -456,15 +535,24 @@ canvas:active { cursor: grabbing; }
     // Nodes.
     const order = [...nodes].sort((a, b) => em(a) - em(b));
     for (const n of order) {
-      const e = em(n);
-      ctx.globalAlpha = e === 0 ? (T.dark ? 0.18 : 0.16) : 1;
+      const e = em(n), L = life(n), color = L >= 1 ? n.color : d3.interpolateRgb(T.ghost, n.color)(L);
+      ctx.globalAlpha = (e === 0 ? (T.dark ? 0.18 : 0.16) : 1) * (L >= 1 ? 1 : 0.45 + 0.55 * L);
       if (n.kind === "theorem") {
         shapePath(n, n.r); ctx.fillStyle = T.bg; ctx.fill();
-        ctx.lineWidth = Math.max(1.6 / k, n.r * 0.42); ctx.strokeStyle = n.color; shapePath(n, n.r * 0.8); ctx.stroke();
-      } else { shapePath(n, n.r); ctx.fillStyle = n.color; ctx.fill(); }
+        ctx.lineWidth = Math.max(1.6 / k, n.r * 0.42); ctx.strokeStyle = color; shapePath(n, n.r * 0.8); ctx.stroke();
+      } else { shapePath(n, n.r); ctx.fillStyle = color; ctx.fill(); }
       if (n === selected || n === hovered || (pair && (n === pair.a || n === pair.b))) {
         ctx.globalAlpha = 1; ctx.lineWidth = 2 / k; ctx.strokeStyle = T.ink;
         shapePath(n, n.r + 4 / k + 2); ctx.stroke();
+      }
+    }
+    // Ripples around the ideas the timeline has just reached.
+    if (tl.on && !reduceMotion) {
+      ctx.lineWidth = 2 / k;
+      for (const n of nodes) {
+        const t = (tl.pos - n.tp) / TL_PULSE;
+        if (t < 0 || t >= 1 || tl.pos >= 1 || em(n) === 0) continue;
+        ctx.globalAlpha = (1 - t) * 0.8; ctx.strokeStyle = n.color; shapePath(n, n.r + (3 + 18 * t) / k); ctx.stroke();
       }
     }
     ctx.globalAlpha = 1;
@@ -503,19 +591,21 @@ canvas:active { cursor: grabbing; }
       const e = em(n);
       if (e === 0) return false;
       if (e >= 2) return true;
+      if (tl.on) { if (life(n) < 1) return false; if (fresh(n)) return true; }
       return n.r * k >= 6.5;
-    }).sort((a, b) => (forced.has(b) - forced.has(a)) || (em(b) - em(a)) || (b.r - a.r));
+    }).sort((a, b) => (forced.has(b) - forced.has(a)) || (em(b) - em(a)) || (fresh(b) - fresh(a)) || (b.r - a.r));
 
     for (const n of cand) {
       const strong = forced.has(n);
       const size = strong ? 14 : 12;
-      ctx.font = `${strong ? 600 : em(n) >= 2 ? 500 : 400} ${size}px ${getFont("--font-body")}`;
+      const bright = strong || em(n) >= 2 || fresh(n);
+      ctx.font = `${strong ? 600 : bright ? 500 : 400} ${size}px ${getFont("--font-body")}`;
       const sx = n.x * k + tx, sy = n.y * k + ty + n.r * k * (n.kind === "axiom" ? 1.25 : 1) + 3;
       const w = ctx.measureText(n.name).width, r = { x: sx - w / 2 - 2, y: sy, w: w + 4, h: size + 3 };
       if (!strong && hit(r)) continue;
       placed.push(r);
       ctx.lineWidth = 3.5; ctx.strokeStyle = T.bg; ctx.strokeText(n.name, sx, sy);
-      ctx.fillStyle = em(n) >= 2 || strong ? T.ink : T.muted; ctx.fillText(n.name, sx, sy);
+      ctx.fillStyle = bright ? T.ink : T.muted; ctx.fillText(n.name, sx, sy);
     }
 
     // Ring captions along the top of each ring.
@@ -787,6 +877,7 @@ canvas:active { cursor: grabbing; }
         <p class="lede">Each dot is a concept or theorem. An arrow runs from an idea to the ideas built on top of it, the way the <i>Principia Mathematica</i> builds arithmetic out of logic.</p>
         <p>In the <b>Foundations</b> view, propositional logic sits at the centre and each ring is one more step of dependency away from it. Switch to <b>Clusters</b> to let the concepts settle by their connections alone. The colours mark traditional domains, but the layout never uses them: the clusters you see come only from what depends on what.</p>
         <p>Bigger dots support more of the map. Select any dot to trace everything it rests on, all the way down to the axioms, and open <b>Explanation and example</b> for the idea in plain words with a worked example. To see how two ideas are related, select one and press <b>Compare</b>, or shift-click a second dot.</p>
+        <p>Press <b>Timeline</b> to watch the ideas appear in the order people found them. History did not build the map from the centre outwards: ${backwards} of the ${links.length} arrows run backwards in time, from a foundation laid after the idea that rests on it. Calculus was in use for two centuries before anyone defined the real numbers underneath it.</p>
         <div class="stats">
           <div class="stat"><b>${nodes.length}</b><span>concepts and theorems</span></div>
           <div class="stat"><b>${links.length}</b><span>dependencies</span></div>
@@ -808,6 +899,7 @@ canvas:active { cursor: grabbing; }
           <button class="close" id="close" aria-label="Close and return to the overview">×</button></div>
         <h2>${esc(n.name)}</h2>
         <p class="lede">${esc(n.summary)}</p>
+        ${n.year != null ? `<p class="when">First known <b>${whenText(n)}</b>${n.origin ? ` · ${esc(n.origin)}` : ""}</p>` : ""}
         ${explainBlock()}
         <div class="stats">
           <div class="stat"><b>${n.depth}</b><span>steps from the axioms</span></div>
@@ -846,7 +938,7 @@ canvas:active { cursor: grabbing; }
     const counts = d3.rollup(nodes, (v) => v.length, (n) => n.domain);
     $("#legend-body").innerHTML = data.domains.map((d) => `
       <button class="dom-btn" data-domain="${esc(d.id)}" aria-pressed="${spotlight === d.id}">
-        <span class="swatch" style="background:${DOMAIN_COLORS[d.id]?.[T.dark ? 1 : 0]}"></span>${esc(d.name)}<span class="n">${counts.get(d.id) ?? 0}</span>
+        <span class="swatch" style="background:${DOMAIN_COLORS[d.id]?.[T.dark ? 1 : 0]}"></span>${esc(d.name)}<span class="n">${legendCount(d.id, counts)}</span>
       </button>`).join("") + `
       <div class="shapes" aria-label="Shapes">
         <span class="shape"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M6 0.5L11.5 6 6 11.5 0.5 6z" fill="currentColor"/></svg>Axiom</span>
@@ -854,12 +946,93 @@ canvas:active { cursor: grabbing; }
         <span class="shape"><svg width="11" height="11" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4" fill="none" stroke="currentColor" stroke-width="2.4"/></svg>Theorem</span>
       </div>`;
   }
+  // While the timeline runs, each domain shows how many of its ideas are known so far.
+  function legendCount(id, counts = d3.rollup(nodes, (v) => v.length, (n) => n.domain)) {
+    const total = counts.get(id) ?? 0;
+    return tl.on ? `${nodes.filter((n) => n.domain === id && n.tp <= tl.pos).length}/${total}` : total;
+  }
+  const updateLegendCounts = () => { const counts = d3.rollup(nodes, (v) => v.length, (n) => n.domain);
+    for (const b of $("#legend-body").querySelectorAll(".dom-btn")) b.querySelector(".n").textContent = legendCount(b.dataset.domain, counts); };
   $("#legend-body").addEventListener("click", (e) => {
     const b = e.target.closest(".dom-btn"); if (!b) return;
     spotlight = spotlight === b.dataset.domain ? null : b.dataset.domain;
     if (selected || pair) select(null);
     renderLegend(); computeFocus();
   });
+
+  // ---------- Timeline controls ----------
+  // The rug under the scrubber has one tick per idea at the year it was found: grey ahead of the scrubber, in colour behind it.
+  function renderRug() {
+    const line = (n, c) => `<line x1="${(n.tp * 1000).toFixed(1)}" x2="${(n.tp * 1000).toFixed(1)}" y1="0" y2="16" stroke="${c}" vector-effect="non-scaling-stroke"/>`;
+    tlRug.innerHTML = `<defs><clipPath id="tl-clip"><rect id="tl-clip-rect" x="-2" y="-1" width="${tl.pos * 1000 + 2}" height="18"/></clipPath></defs>
+      <g stroke-width="1.5" opacity="0.8">${nodes.map((n) => line(n, T.ghost)).join("")}</g>
+      <g stroke-width="1.5" clip-path="url(#tl-clip)">${nodes.map((n) => line(n, n.color)).join("")}</g>`;
+  }
+  // Year labels along the scrubber, dropping any that would collide; the end labels are kept inside the track.
+  function renderTicks() {
+    const w = tlTicks.clientWidth, charW = 6.1;
+    let lastEnd = -Infinity;
+    const kept = [];
+    for (const y of TL_TICKS) {
+      const text = fmtYear(y), half = (text.length * charW) / 2, x = Math.min(w - half, Math.max(half, tlScale(y) * w));
+      if (x - half < lastEnd + 8) continue;
+      kept.push(`<span style="left:${x.toFixed(1)}px">${text}</span>`); lastEnd = x + half;
+    }
+    tlTicks.innerHTML = kept.join("");
+  }
+  function setPos(p) {
+    tl.pos = Math.max(0, Math.min(1, p));
+    tlRange.value = Math.round(tl.pos * 1000);
+    const y = Math.round(tlScale.invert(tl.pos)), label = tl.pos >= 1 ? "Today" : fmtYear(y < 1500 ? Math.round(y / 10) * 10 : y);
+    $("#tl-year").textContent = label;
+    tlRange.setAttribute("aria-valuetext", label);
+    $("#tl-clip-rect")?.setAttribute("width", tl.pos * 1000 + 2);
+    const known = nodes.filter((n) => n.tp <= tl.pos);
+    if (known.length !== tl.known) {
+      tl.known = known.length;
+      $("#tl-count").textContent = `${known.length} of ${nodes.length} ideas`;
+      const newest = known.sort((a, b) => (b.tp - a.tp) || (b.r - a.r)).slice(0, 3);
+      $("#tl-latest").innerHTML = newest.length
+        ? `<span>Newest</span>${newest.map((n) => `<button class="chip" data-id="${esc(n.id)}"><span class="swatch" style="background:${n.color}"></span>${esc(n.name)} <i>${whenText(n)}</i></button>`).join("")}`
+        : `<span>Nothing known yet. Press play, or drag along the years.</span>`;
+      updateLegendCounts();
+    }
+    requestDraw();
+  }
+  function play(on) {
+    tl.playing = on; cancelAnimationFrame(tl.raf);
+    const btn = $("#tl-play");
+    btn.textContent = on ? "❚❚" : "▶"; btn.setAttribute("aria-label", on ? "Pause the timeline" : "Play the timeline");
+    if (!on) return;
+    if (tl.pos >= 1) setPos(0);
+    let last = null;
+    const step = (now) => {
+      if (!tl.playing) return;
+      if (last != null) setPos(tl.pos + Math.min(now - last, 100) / 1000 / TL_SECONDS);
+      last = now;
+      if (tl.pos >= 1) play(false); else tl.raf = requestAnimationFrame(step);
+    };
+    tl.raf = requestAnimationFrame(step);
+  }
+  function setTimeline(on) {
+    tl.on = on; tlBox.hidden = !on;
+    stage.classList.toggle("tl-on", on);
+    $("#tl-toggle").setAttribute("aria-pressed", on);
+    tl.known = -1;
+    if (on) {
+      stage.style.setProperty("--tl-h", tlBox.offsetHeight + "px");
+      renderTicks(); setPos(0);
+      if (!reduceMotion) play(true);
+    } else { play(false); updateLegendCounts(); }
+    if (!selected && !pair) fit();
+    requestDraw();
+  }
+  $("#tl-toggle").onclick = () => setTimeline(!tl.on);
+  $("#tl-close").onclick = () => setTimeline(false);
+  $("#tl-play").onclick = () => play(!tl.playing);
+  tlRange.addEventListener("input", () => { play(false); setPos(tlRange.value / 1000); });
+  $("#tl-latest").addEventListener("click", (e) => { const c = e.target.closest(".chip"); if (c) select(byId.get(c.dataset.id)); });
+  new ResizeObserver(() => { if (tl.on) { renderTicks(); stage.style.setProperty("--tl-h", tlBox.offsetHeight + "px"); } }).observe(tlBox);
 
   // ---------- Search ----------
   const q = $("#q"), results = $("#results");
